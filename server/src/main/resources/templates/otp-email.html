@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your OTP Code</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #111827;
+            --accent: #0ea5e9;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(14,165,233,0.15), transparent 35%),
+                        radial-gradient(circle at 80% 0%, rgba(255,255,255,0.05), transparent 25%),
+                        var(--bg);
+            color: var(--text);
+        }
+        .container {
+            max-width: 520px;
+            margin: 40px auto;
+            padding: 24px;
+        }
+        .card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.02), rgba(14,165,233,0.05));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+            overflow: hidden;
+        }
+        .header {
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(14,165,233,0.25), rgba(14,165,233,0));
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .title {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #7dd3fc;
+        }
+        .body {
+            padding: 24px;
+        }
+        .greeting {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .text {
+            margin: 0 0 20px 0;
+            color: var(--muted);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        .otp {
+            text-align: center;
+            margin: 24px 0 12px;
+        }
+        .otp-code {
+            display: inline-block;
+            font-size: 32px;
+            letter-spacing: 6px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.4);
+            color: #7dd3fc;
+            font-weight: 700;
+        }
+        .footer {
+            padding: 0 24px 24px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            margin: 18px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <p class="title">Library Digital</p>
+        </div>
+        <div class="body">
+            <p class="greeting">Xin chào {{name}},</p>
+            <p class="text">Mã xác thực một lần (OTP) của bạn đang chờ. Hãy dùng mã này để hoàn tất đăng nhập.</p>
+            <div class="otp">
+                <span class="otp-code">{{otp}}</span>
+            </div>
+            <p class="text" style="text-align:center;">Mã sẽ hết hạn sau <strong>{{expiryMinutes}}</strong> phút.</p>
+            <div class="divider"></div>
+            <p class="text">Nếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này. Tài khoản của bạn sẽ an toàn miễn là bạn không chia sẻ mã.</p>
+        </div>
+        <div class="footer">
+            <p>Gửi bởi hệ thống Library Digital.</p>
+            <p>Vui lòng không trả lời email này.</p>
+        </div>
+    </div>
+  </div>
+</body>
+</html>

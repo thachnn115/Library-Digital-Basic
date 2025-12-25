@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: demo
+
+  servlet:
+    multipart:
+      max-file-size: 10GB
+      max-request-size: 10GB
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+  datasource:
+    url: jdbc:mysql://localhost:3306/library?serverTimezone=Asia/Ho_Chi_Minh
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+openapi:
+  service:
+    api-docs: backend-service
+    server: http://localhost:${server.port}
+    title: Library Digital
+    version: 1.0.0
+
+jwt:
+  expiryDay: 3
+  expiryMinutes: 14400
+  accessKey: ${JWT_AC:fPEZIjt0xHDMP/TlLjuXBuXCyN9HuB498CEQXZ39oiQ=}
+  refreshKey: ${JWT_RF:TN13ztj3wnw/DC9qiDz+pU/DaxztO6ZF1x33kqbvdhM=}
+
+account:
+  admin:
+    email: ${ROOT_USERNAME:admin@gmail.com}
+    password: ${ROOT_PASSWORD:123456789}
+
+openrouter:
+  api-key: ${OPENROUTER_API_KEY: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}
+  base-url: https://openrouter.ai/api/v1
+  model: x-ai/grok-4.1-fast:free
+
+password-reset:
+  expiry-minutes: 30
+  base-url: ${RESET_PASSWORD_URL:http://localhost:5173/reset-password}
