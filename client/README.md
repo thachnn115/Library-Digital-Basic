@@ -1,4 +1,64 @@
-# React + TypeScript + Vite
+# Library Digital - Frontend
+
+React + TypeScript + Vite application for Library Digital system.
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development Mode (Bypass Authentication)
+
+To view and review the UI without backend connection:
+
+1. Copy `env.example` to `.env`:
+   ```bash
+   cp env.example .env
+   ```
+
+2. Enable dev mode in `.env`:
+   ```env
+   VITE_DEV_MODE=true
+   VITE_DEV_MOCK_ROLE=ADMIN  # Options: ADMIN, SUB_ADMIN, LECTURER
+   ```
+
+3. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+See [DEV_MODE_GUIDE.md](./DEV_MODE_GUIDE.md) for detailed information about development mode.
+
+### Normal Development
+
+1. Create `.env` file:
+   ```bash
+   cp env.example .env
+   ```
+
+2. Configure API URL:
+   ```env
+   VITE_API_BASE_URL=http://localhost:8080
+   ```
+
+3. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
+
+---
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
