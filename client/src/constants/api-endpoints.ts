@@ -35,7 +35,6 @@ export const API_ENDPOINTS = {
 		DOWNLOAD: (id: string | number) => `/resource/${id}/download`,
 		MY_UPLOADS: "/resource/my-uploads",
 		DELETE: (id: string | number) => `/resource/${id}`,
-		UPDATE_APPROVAL: (id: string | number) => `/resource/${id}/approval-status`,
 	},
 
 	// Department
@@ -138,10 +137,5 @@ export const API_ENDPOINTS = {
 		CREATE: "/rating",
 		UPDATE: (id: string | number) => `/rating/${id}`,
 		DELETE: (id: string | number) => `/rating/${id}`,
-	},
-
-	// AI
-	AI: {
-		CHAT: "/ai/chat",
 	},
 } as const;

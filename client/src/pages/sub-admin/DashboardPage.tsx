@@ -17,9 +17,8 @@ const SubAdminDashboardPage: React.FC = () => {
 		queryKey: ['users', 'department', departmentId],
 		queryFn: () =>
 			userApi.getAll({
-				departmentId,
 				page: 0,
-				size: 1,
+				size: 1000, // Get all users to filter LECTURER only
 			}),
 		enabled: !!departmentId,
 	});
@@ -31,7 +30,10 @@ const SubAdminDashboardPage: React.FC = () => {
 		enabled: !!departmentId,
 	});
 
-	const totalUsers = usersData?.totalElements || 0;
+	// Count only LECTURER users (exclude SUB_ADMIN and ADMIN)
+	const totalLecturers = usersData?.content?.filter(
+		(user) => user.type === 'LECTURER' || user.role === 'LECTURER'
+	).length || 0;
 	const totalCourses = courses.length;
 
 	return (
@@ -43,7 +45,7 @@ const SubAdminDashboardPage: React.FC = () => {
 					<Card>
 						<Statistic
 							title="Tổng số giảng viên"
-							value={totalUsers}
+							value={totalLecturers}
 							prefix={<UserOutlined />}
 							valueStyle={{ color: '#3f8600' }}
 						/>

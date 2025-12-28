@@ -10,7 +10,6 @@ import {
 	message,
 	Descriptions,
 	Drawer,
-	Input as AntInput,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -66,16 +65,19 @@ export const SpecializationManager: React.FC = () => {
 
 	const { data: specializations = [], isLoading } = useQuery({
 		queryKey: ["specializations", filterProgramCode, filterDepartmentCode],
-		queryFn: () => specializationApi.getAll({
-			programCode: filterProgramCode || undefined,
-			// Note: Backend doesn't support departmentCode filter directly,
-			// but we can filter on frontend
-		}),
+		queryFn: () =>
+			specializationApi.getAll({
+				programCode: filterProgramCode || undefined,
+				// Note: Backend doesn't support departmentCode filter directly,
+				// but we can filter on frontend
+			}),
 	});
 
 	// Filter by department on frontend if needed
 	const filteredSpecializations = filterDepartmentCode
-		? specializations.filter((spec) => spec.department?.code === filterDepartmentCode)
+		? specializations.filter(
+				(spec) => spec.department?.code === filterDepartmentCode
+		  )
 		: specializations;
 
 	const {
@@ -200,7 +202,8 @@ export const SpecializationManager: React.FC = () => {
 		{
 			title: "Chương trình đào tạo",
 			key: "trainingProgram",
-			render: (_, record) => record.program?.name || record.trainingProgram?.name || "-",
+			render: (_, record) =>
+				record.program?.name || record.trainingProgram?.name || "-",
 		},
 		{
 			title: "Mô tả",

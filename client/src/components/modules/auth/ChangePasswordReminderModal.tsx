@@ -23,9 +23,10 @@ export const ChangePasswordReminderModal: React.FC<ChangePasswordReminderModalPr
 
 	const handleGoToChangePassword = () => {
 		setLoading(true);
-		// Navigate to profile page where user can change password
-		navigate('/profile');
+		// Close modal first
 		onCancel?.();
+		// Navigate to profile page with state to auto-open change password modal
+		navigate('/profile', { state: { openChangePassword: true } });
 		setLoading(false);
 	};
 

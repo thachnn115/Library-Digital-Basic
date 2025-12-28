@@ -15,7 +15,18 @@ const createUserSchema = z
 		fullName: z.string().min(1, "Họ tên không được để trống").optional(),
 		phone: z.string().optional(),
 		gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-		userIdentifier: z.string().optional(),
+		userIdentifier: z
+			.string()
+			.optional()
+			.refine(
+				(val) => !val || val.trim().length > 0,
+				"Mã định danh không được chỉ chứa khoảng trắng"
+			)
+			.refine(
+				(val) => !val || val.trim().length <= 100,
+				"Mã định danh không được quá 100 ký tự"
+			)
+			.transform((val) => (val ? val.trim() : undefined)),
 		dateOfBirth: z.string().optional(),
 		type: z.enum(["ADMIN", "SUB_ADMIN", "LECTURER"]),
 		status: z.enum(["ACTIVE", "INACTIVE", "LOCK"]).optional(),
@@ -39,6 +50,7 @@ interface UserCreateModalProps {
 	open: boolean;
 	onCancel: () => void;
 	onSubmit: (data: CreateUserRequest) => Promise<void>;
+	currentUserType?: "ADMIN" | "SUB_ADMIN" | "LECTURER";
 }
 
 /**
@@ -48,7 +60,10 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 	open,
 	onCancel,
 	onSubmit,
+	currentUserType,
 }) => {
+	const isSubAdmin = currentUserType === "SUB_ADMIN";
+
 	const {
 		control,
 		handleSubmit,
@@ -59,6 +74,7 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 		resolver: zodResolver(createUserSchema),
 		defaultValues: {
 			status: "ACTIVE",
+			type: isSubAdmin ? "LECTURER" : undefined, // Default to LECTURER for SUB_ADMIN
 		},
 	});
 
@@ -88,11 +104,17 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 		}
 	};
 
-	const typeOptions = [
-		{ label: "Quản trị viên", value: "ADMIN" },
-		{ label: "Quản trị khoa", value: "SUB_ADMIN" },
-		{ label: "Giảng viên", value: "LECTURER" },
-	];
+	// Filter type options based on current user type
+	const typeOptions = isSubAdmin
+		? [
+				// SUB_ADMIN can only create LECTURER
+				{ label: "Giảng viên", value: "LECTURER" },
+		  ]
+		: [
+				// ADMIN can create all types except ADMIN (backend prevents creating ADMIN)
+				{ label: "Quản trị khoa", value: "SUB_ADMIN" },
+				{ label: "Giảng viên", value: "LECTURER" },
+		  ];
 
 	return (
 		<Modal
@@ -169,13 +191,27 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 				<Form.Item
 					label="Mã định danh"
 					validateStatus={errors.userIdentifier ? "error" : ""}
-					help={errors.userIdentifier?.message}
+					help={
+						errors.userIdentifier?.message ||
+						"Mã định danh phải là duy nhất (không trùng với người dùng khác)"
+					}
 				>
 					<Controller
 						name="userIdentifier"
 						control={control}
 						render={({ field }) => (
-							<Input {...field} placeholder="Nhập mã định danh (tùy chọn)" />
+							<Input
+								{...field}
+								placeholder="Nhập mã định danh (tùy chọn, phải là duy nhất)"
+								maxLength={100}
+								onBlur={(e) => {
+									// Trim value on blur
+									const trimmed = e.target.value.trim();
+									if (trimmed !== e.target.value) {
+										field.onChange(trimmed);
+									}
+								}}
+							/>
 						)}
 					/>
 				</Form.Item>
@@ -264,7 +300,10 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 				<Form.Item
 					label="Vai trò"
 					validateStatus={errors.type ? "error" : ""}
-					help={errors.type?.message}
+					help={
+						errors.type?.message ||
+						(isSubAdmin && "Quản trị khoa chỉ có thể tạo giảng viên")
+					}
 					required
 				>
 					<Controller
@@ -275,6 +314,7 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 								{...field}
 								placeholder="Chọn vai trò"
 								options={typeOptions}
+								disabled={isSubAdmin} // Disable for SUB_ADMIN since it's fixed to LECTURER
 							/>
 						)}
 					/>

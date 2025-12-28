@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, Form, Input, Button, Space, Avatar, Modal, Upload, message, DatePicker } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import {
@@ -12,6 +12,7 @@ import {
 	CameraOutlined,
 } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/api/user.api";
@@ -30,9 +31,20 @@ import { isAdmin, isSubAdmin } from "@/utils/auth.utils";
 export const ProfileView: React.FC = () => {
 	const { user, updateUser } = useAuth();
 	const queryClient = useQueryClient();
+	const location = useLocation();
 	const [isEditing, setIsEditing] = useState(false);
 	const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 	const [form] = Form.useForm();
+
+	// Auto-open change password modal if navigated from reminder modal
+	useEffect(() => {
+		const state = location.state as { openChangePassword?: boolean } | null;
+		if (state?.openChangePassword) {
+			setChangePasswordModalOpen(true);
+			// Clear the state to prevent reopening on re-render
+			window.history.replaceState({}, document.title);
+		}
+	}, [location.state]);
 
 	// Check if user can edit all fields (ADMIN/SUB_ADMIN) or only phone/dateOfBirth (LECTURER)
 	const canEditAllFields = isAdmin() || isSubAdmin();
@@ -228,8 +240,8 @@ export const ProfileView: React.FC = () => {
 							icon={<UserOutlined />}
 							className="bg-blue-500"
 						/>
-						{/* Only ADMIN and SUB_ADMIN can upload avatar */}
-						{canEditAllFields && (
+						{/* Only ADMIN can upload avatar */}
+						{isAdmin() && (
 							<Upload
 								showUploadList={false}
 								beforeUpload={() => false}

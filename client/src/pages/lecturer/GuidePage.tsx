@@ -144,23 +144,22 @@ const GuidePage: React.FC = () => {
 					<ul className="list-disc list-inside space-y-1 ml-4">
 						<li>Kiểm tra lý do từ chối trong phần "Học liệu của tôi"</li>
 						<li>Chỉnh sửa và upload lại học liệu</li>
-						<li>Liên hệ Admin nếu cần hỗ trợ thêm</li>
 					</ul>
 				</div>
 			),
 		},
 		{
 			key: '7',
-			label: 'Làm thế nào để đổi mật khẩu và PIN?',
+			label: 'Làm thế nào để đổi mật khẩu?',
 			children: (
 				<div className="space-y-2">
 					<Paragraph>
-						Bạn có thể đổi mật khẩu và PIN trong trang "Hồ sơ cá nhân":
+						Bạn có thể đổi mật khẩu trong trang "Hồ sơ cá nhân":
 					</Paragraph>
 					<ul className="list-disc list-inside space-y-1 ml-4">
 						<li>Click vào menu người dùng ở góc trên bên phải</li>
 						<li>Chọn "Hồ sơ cá nhân"</li>
-						<li>Vào tab "Bảo mật" để đổi mật khẩu và PIN</li>
+						<li>Vào tab "Bảo mật" để đổi mật khẩu</li>
 					</ul>
 					<Paragraph className="mt-2">
 						<Text strong>Lưu ý:</Text> Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ
@@ -286,19 +285,6 @@ const GuidePage: React.FC = () => {
 								</Collapse.Panel>
 							))}
 						</Collapse>
-					</div>
-
-					<Divider />
-
-					<div className="bg-blue-50 p-4 rounded-lg">
-						<Title level={4}>Cần hỗ trợ thêm?</Title>
-						<Paragraph>
-							Nếu bạn có câu hỏi hoặc gặp vấn đề khi sử dụng hệ thống, vui lòng{' '}
-							<a href="/contact" className="text-blue-600 hover:underline">
-								liên hệ với chúng tôi
-							</a>
-							.
-						</Paragraph>
 					</div>
 				</Space>
 			</Card>

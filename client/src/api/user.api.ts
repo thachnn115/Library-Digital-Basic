@@ -3,11 +3,11 @@ import type {
 	CreateUserRequest,
 	UpdateUserRequest,
 	UserFilterParams,
-} from '@/types/user.types';
-import type { ChangePasswordRequest } from '@/types/auth.types';
-import type { ApiResponse, PaginatedResponse } from '@/types/api.types';
-import { API_ENDPOINTS } from '@/constants/api-endpoints';
-import apiClient from './client';
+} from "@/types/user.types";
+import type { ChangePasswordRequest } from "@/types/auth.types";
+import type { ApiResponse, PaginatedResponse } from "@/types/api.types";
+import { API_ENDPOINTS } from "@/constants/api-endpoints";
+import apiClient from "./client";
 
 /**
  * User Management API Service
@@ -17,7 +17,9 @@ export const userApi = {
 	 * Get all users with filters and pagination
 	 * Backend returns List<PublicUser>, not PaginatedResponse
 	 */
-	getAll: async (params?: UserFilterParams): Promise<PaginatedResponse<User>> => {
+	getAll: async (
+		params?: UserFilterParams
+	): Promise<PaginatedResponse<User>> => {
 		const response = await apiClient.get<ApiResponse<User[]>>(
 			API_ENDPOINTS.USER.BASE,
 			{ params }
@@ -60,7 +62,7 @@ export const userApi = {
 			dateOfBirth: data.dateOfBirth?.trim() || undefined,
 			fullName: data.fullName?.trim() || undefined,
 		};
-		
+
 		const response = await apiClient.post<ApiResponse<User>>(
 			API_ENDPOINTS.USER.CREATE,
 			normalizedData
@@ -71,7 +73,10 @@ export const userApi = {
 	/**
 	 * Update user
 	 */
-	update: async (id: string | number, data: UpdateUserRequest): Promise<User> => {
+	update: async (
+		id: string | number,
+		data: UpdateUserRequest
+	): Promise<User> => {
 		const response = await apiClient.put<ApiResponse<User>>(
 			API_ENDPOINTS.USER.UPDATE(id),
 			data
@@ -89,8 +94,14 @@ export const userApi = {
 	/**
 	 * Reset user password
 	 */
-	resetPassword: async (id: string | number): Promise<void> => {
-		await apiClient.post<ApiResponse<void>>(API_ENDPOINTS.USER.RESET_PASSWORD(id));
+	resetPassword: async (
+		id: string | number,
+		newPassword: string
+	): Promise<void> => {
+		await apiClient.post<ApiResponse<void>>(
+			API_ENDPOINTS.USER.RESET_PASSWORD(id),
+			{ newPassword }
+		);
 	},
 
 	/**
@@ -112,16 +123,11 @@ export const userApi = {
 	 */
 	importUsers: async (file: File): Promise<number> => {
 		const formData = new FormData();
-		formData.append('file', file);
+		formData.append("file", file);
 
 		const response = await apiClient.post<ApiResponse<number>>(
 			API_ENDPOINTS.USER.IMPORT,
-			formData,
-			{
-				headers: {
-					'Content-Type': 'multipart/form-data',
-				},
-			}
+			formData
 		);
 		return response.data.data;
 	},
@@ -131,14 +137,13 @@ export const userApi = {
 	 */
 	updateAvatar: async (id: string | number, file: File): Promise<User> => {
 		const formData = new FormData();
-		formData.append('file', file);
+		formData.append("file", file);
 
 		const response = await apiClient.put<ApiResponse<User>>(
 			API_ENDPOINTS.USER.UPDATE_AVATAR(id),
 			formData
 		);
-		
+
 		return response.data.data;
 	},
 };
-

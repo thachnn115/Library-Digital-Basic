@@ -7,7 +7,7 @@ const { Footer: AntFooter } = Layout;
  * Footer component for the application
  * Displays copyright, contact information, and useful links
  */
-const Footer: React.FC = () => {
+export const Footer: React.FC = () => {
 	const currentYear = new Date().getFullYear();
 
 	return (
@@ -132,4 +132,3 @@ const Footer: React.FC = () => {
 	);
 };
 
-export default Footer;

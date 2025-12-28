@@ -90,6 +90,32 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Custom styles for Sidebar Menu */
+.ant-menu-item {
+  border-radius: 10px !important;
+  margin: 4px 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  transform: translateX(4px);
+}
+
+.ant-menu-item-selected {
+  background: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  font-weight: 600 !important;
+}
+
+.ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.ant-menu-item-icon {
+  font-size: 18px !important;
+}
+
   a:hover {
     color: #747bff;
 }
