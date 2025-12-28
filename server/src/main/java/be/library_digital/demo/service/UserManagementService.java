@@ -14,8 +14,10 @@ import be.library_digital.demo.exception.ResourceNotFoundException;
 import be.library_digital.demo.model.Department;
 import be.library_digital.demo.model.Role;
 import be.library_digital.demo.model.User;
+import be.library_digital.demo.model.UserHasRole;
 import be.library_digital.demo.repository.DepartmentRepository;
 import be.library_digital.demo.repository.RoleRepository;
+import be.library_digital.demo.repository.UserHasRoleRepository;
 import be.library_digital.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,11 +53,16 @@ public class UserManagementService {
     private final PasswordEncoder passwordEncoder;
     private final DepartmentRepository departmentRepository;
     private final RoleRepository roleRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
 
     @Value("${file.avatar-upload-dir:uploads/avatars}")
     private String avatarUploadDir;
 
     public PublicUser createUser(CreateUserRequest request, User currentUser) {
+        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role subAdminRole = roleRepository.findByName("SUB_ADMIN").orElseThrow();
+        Role lecturerRole = roleRepository.findByName("LECTURER").orElseThrow();
+
         if (currentUser == null || currentUser.getType() == null) {
             throw new ForbiddenException("You don't have permission to create users");
         }
@@ -117,6 +124,16 @@ public class UserManagementService {
         user.setLastFailedLoginDate(null);
 
         User saved = userRepository.save(user);
+        UserType finalType = type;
+        Role role = roleRepository.findByName(type.name())
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + finalType.name()));
+        UserHasRole userHasRole = UserHasRole.builder()
+                .role(role)
+                .user(saved)
+                .build();
+        userHasRoleRepository.save(userHasRole);
+        saved.getRoles().add(userHasRole);
+        userRepository.save(saved);
         log.info("User {} created by {}", saved.getId(), currentUser.getId());
         return PublicUser.fromUser(saved);
     }
