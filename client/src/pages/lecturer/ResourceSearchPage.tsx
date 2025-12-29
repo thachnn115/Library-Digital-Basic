@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, Select, Space, Button } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resourceApi } from "@/api/resource.api";
 import { ResourceSearchBox } from "@/components/modules/resource/ResourceSearchBox";
 import { ResourceFilterBar } from "@/components/modules/resource/ResourceFilterBar";
@@ -38,6 +38,7 @@ const ResourceSearchPage: React.FC = () => {
 		null
 	);
 	const [viewerOpen, setViewerOpen] = useState<boolean>(false);
+	const queryClient = useQueryClient();
 
 	// Get folder structure from browse API (LECTURER has access to this)
 	// This is for the folder tree below search box
@@ -210,17 +211,51 @@ const ResourceSearchPage: React.FC = () => {
 		return sorted;
 	}, [browseResources, sortOption]);
 
-	// Store seen nodes for breadcrumb formatting - derive from browseData instead of setState
+	// Store seen nodes for breadcrumb formatting - collect from all cached queries
 	const browseNodes = browseData?.nodes;
 	const seenNodes = useMemo(() => {
 		const nodeMap = new Map<string, FolderNodeResponse>();
+
+		// Add current nodes
 		if (browseNodes && Array.isArray(browseNodes)) {
 			browseNodes.forEach((node) => {
 				nodeMap.set(node.id, node);
 			});
 		}
+
+		// Collect nodes from all cached browse queries
+		// Get all cached queries that match the pattern ["resources", "browse", ...]
+		const queryCache = queryClient.getQueryCache();
+		const allQueries = queryCache.getAll();
+
+		allQueries.forEach((query) => {
+			const queryKey = query.queryKey;
+			if (
+				Array.isArray(queryKey) &&
+				queryKey.length >= 2 &&
+				queryKey[0] === "resources" &&
+				queryKey[1] === "browse" &&
+				queryKey[2] &&
+				typeof queryKey[2] === "object"
+			) {
+				const cachedData = query.state.data as
+					| {
+							nodes?: FolderNodeResponse[];
+					  }
+					| undefined;
+				if (cachedData?.nodes && Array.isArray(cachedData.nodes)) {
+					cachedData.nodes.forEach((node) => {
+						// Only add if not already in map (current nodes take precedence)
+						if (!nodeMap.has(node.id)) {
+							nodeMap.set(node.id, node);
+						}
+					});
+				}
+			}
+		});
+
 		return nodeMap;
-	}, [browseNodes]);
+	}, [browseNodes, queryClient]);
 
 	// Convert browse nodes to folder items for grid display
 	const browseNodesForFolders = browseData?.nodes;
@@ -390,17 +425,17 @@ const ResourceSearchPage: React.FC = () => {
 				label = `Học phần: ${courseTitle}`;
 			} else if (label.startsWith("Lecturer: ")) {
 				const lecturerId = label.replace("Lecturer: ", "");
-				// Try to find lecturer name from current nodes first
-				const lecturerNode = browseNodesForBreadcrumbs?.find(
-					(n) => n.type === "LECTURER" && n.id === lecturerId
-				);
-				if (lecturerNode) {
-					label = `Giảng viên: ${lecturerNode.name}`;
+				// Try to find lecturer name from seen nodes (includes current and cached nodes)
+				const seenNode = seenNodes.get(lecturerId);
+				if (seenNode && seenNode.type === "LECTURER") {
+					label = `Giảng viên: ${seenNode.name}`;
 				} else {
-					// Try to find from seen nodes (from previous levels)
-					const seenNode = seenNodes.get(lecturerId);
-					if (seenNode && seenNode.type === "LECTURER") {
-						label = `Giảng viên: ${seenNode.name}`;
+					// Try to find from current nodes
+					const lecturerNode = browseNodesForBreadcrumbs?.find(
+						(n) => n.type === "LECTURER" && n.id === lecturerId
+					);
+					if (lecturerNode) {
+						label = `Giảng viên: ${lecturerNode.name}`;
 					} else {
 						// Try to find from resources (when at resource level)
 						const resource = browseResourcesForBreadcrumbs?.find(
@@ -409,27 +444,66 @@ const ResourceSearchPage: React.FC = () => {
 						if (resource?.uploadedBy?.fullName) {
 							label = `Giảng viên: ${resource.uploadedBy.fullName}`;
 						} else {
-							// Fallback: keep ID if name not found
-							label = `Giảng viên: ${lecturerId}`;
+							// Try to find from cache by parsing breadcrumb URL
+							const crumbParams = parseBreadcrumbUrl(crumb.url);
+							// Build parent params (remove lecturerId to get Course level where Lecturer nodes exist)
+							const parentParams: ResourceBrowseParams = {
+								programCode: crumbParams.programCode,
+								specializationCode: crumbParams.specializationCode,
+								courseTitle: crumbParams.courseTitle,
+							};
+							const cachedData = queryClient.getQueryData<{
+								nodes?: FolderNodeResponse[];
+								resources?: Resource[];
+							}>(["resources", "browse", parentParams]);
+							const cachedLecturerNode = cachedData?.nodes?.find(
+								(n) => n.type === "LECTURER" && n.id === lecturerId
+							);
+							if (cachedLecturerNode) {
+								label = `Giảng viên: ${cachedLecturerNode.name}`;
+							} else {
+								// Fallback: keep ID if name not found
+								label = `Giảng viên: ${lecturerId}`;
+							}
 						}
 					}
 				}
 			} else if (label.startsWith("Classroom: ")) {
 				const classroomId = label.replace("Classroom: ", "");
-				// Try to find classroom name from current nodes first
-				const classroomNode = browseNodesForBreadcrumbs?.find(
-					(n) => n.type === "CLASSROOM" && n.id === classroomId
-				);
-				if (classroomNode) {
-					label = `Lớp: ${classroomNode.name}`;
+				// Try to find classroom name from seen nodes (includes current and cached nodes)
+				const seenNode = seenNodes.get(classroomId);
+				if (seenNode && seenNode.type === "CLASSROOM") {
+					label = `Lớp: ${seenNode.name}`;
 				} else {
-					// Try to find from seen nodes (from previous levels)
-					const seenNode = seenNodes.get(classroomId);
-					if (seenNode && seenNode.type === "CLASSROOM") {
-						label = `Lớp: ${seenNode.name}`;
+					// Try to find from current nodes
+					const classroomNode = browseNodesForBreadcrumbs?.find(
+						(n) => n.type === "CLASSROOM" && n.id === classroomId
+					);
+					if (classroomNode) {
+						label = `Lớp: ${classroomNode.name}`;
 					} else {
-						// Fallback: keep ID if name not found
-						label = `Lớp: ${classroomId}`;
+						// Try to find from cache by parsing breadcrumb URL
+						const crumbParams = parseBreadcrumbUrl(crumb.url);
+						// Build parent params (remove classroomId to get Lecturer level where Classroom nodes exist)
+						const parentParams: ResourceBrowseParams = {
+							programCode: crumbParams.programCode,
+							specializationCode: crumbParams.specializationCode,
+							courseTitle: crumbParams.courseTitle,
+							lecturerId: crumbParams.lecturerId,
+						};
+						const cachedData = queryClient.getQueryData<{
+							nodes?: FolderNodeResponse[];
+							resources?: Resource[];
+						}>(["resources", "browse", parentParams]);
+						const cachedClassroomNode = cachedData?.nodes?.find(
+							(n) => n.type === "CLASSROOM" && n.id === classroomId
+						);
+						if (cachedClassroomNode) {
+							label = `Lớp: ${cachedClassroomNode.name}`;
+						} else {
+							// Fallback: keep ID if name not found
+							label = `Lớp: ${classroomId}`;
+						}
 					}
 				}
 			}
@@ -444,6 +518,7 @@ const ResourceSearchPage: React.FC = () => {
 		browseNodesForBreadcrumbs,
 		browseResourcesForBreadcrumbs,
 		seenNodes,
+		queryClient,
 	]);
 
 	const handleView = (resource: Resource) => {
@@ -515,9 +590,6 @@ const ResourceSearchPage: React.FC = () => {
 						<div>
 							<p className="text-gray-600">
 								Tìm thấy <strong>{searchResults.length}</strong> học liệu
-							</p>
-							<p className="text-xs text-gray-500 mt-1">
-								* Chỉ hiển thị học liệu đã được duyệt (APPROVED)
 							</p>
 						</div>
 						<Space>

@@ -34,6 +34,42 @@ const departmentSchema = z.object({
 });
 
 /**
+ * Helper function để xử lý lỗi từ API response
+ */
+const getErrorMessage = (error: unknown, defaultMessage: string): string => {
+	if (error && typeof error === "object" && "response" in error) {
+		const axiosError = error as {
+			response?: {
+				data?: {
+					message?: string;
+					error?: string;
+				};
+			};
+		};
+
+		const responseData = axiosError.response?.data;
+		const message =
+			responseData?.message || responseData?.error || defaultMessage;
+
+		// Kiểm tra lỗi foreign key constraint
+		const lowerMessage = message.toLowerCase();
+		if (
+			lowerMessage.includes("foreign key") ||
+			lowerMessage.includes("constraint") ||
+			lowerMessage.includes("cannot delete") ||
+			lowerMessage.includes("cannot update") ||
+			lowerMessage.includes("parent row")
+		) {
+			return "Không thể xóa khoa này vì đang có người dùng hoặc dữ liệu liên quan. Vui lòng xóa hoặc chuyển các dữ liệu liên quan trước.";
+		}
+
+		return message;
+	}
+
+	return defaultMessage;
+};
+
+/**
  * Department Manager Component
  */
 export const DepartmentManager: React.FC = () => {
@@ -68,26 +104,10 @@ export const DepartmentManager: React.FC = () => {
 			message.success("Tạo khoa thành công!");
 		},
 		onError: (error: unknown) => {
-			let errorMessage = "Tạo khoa thất bại. Vui lòng thử lại.";
-
-			if (error && typeof error === "object" && "response" in error) {
-				const axiosError = error as {
-					response?: {
-						data?: {
-							message?: string;
-							error?: string;
-						};
-					};
-				};
-
-				const responseData = axiosError.response?.data;
-				if (responseData?.message) {
-					errorMessage = responseData.message;
-				} else if (responseData?.error) {
-					errorMessage = responseData.error;
-				}
-			}
-
+			const errorMessage = getErrorMessage(
+				error,
+				"Tạo khoa thất bại. Vui lòng thử lại."
+			);
 			message.error(errorMessage);
 		},
 	});
@@ -102,8 +122,12 @@ export const DepartmentManager: React.FC = () => {
 			reset();
 			message.success("Cập nhật khoa thành công!");
 		},
-		onError: () => {
-			message.error("Cập nhật khoa thất bại. Vui lòng thử lại.");
+		onError: (error: unknown) => {
+			const errorMessage = getErrorMessage(
+				error,
+				"Cập nhật khoa thất bại. Vui lòng thử lại."
+			);
+			message.error(errorMessage);
 		},
 	});
 
@@ -115,8 +139,12 @@ export const DepartmentManager: React.FC = () => {
 			setSelectedDepartment(null);
 			message.success("Xóa khoa thành công!");
 		},
-		onError: () => {
-			message.error("Xóa khoa thất bại. Vui lòng thử lại.");
+		onError: (error: unknown) => {
+			const errorMessage = getErrorMessage(
+				error,
+				"Xóa khoa thất bại. Vui lòng thử lại."
+			);
+			message.error(errorMessage);
 		},
 	});
 

@@ -132,7 +132,7 @@ export const ResourceList: React.FC<ResourceListProps> = ({
 			{viewMode === 'grid' ? (
 				<Row gutter={[16, 16]}>
 					{enrichedResources.map((resource) => (
-						<Col key={resource.id} xs={24} sm={12} md={8} lg={6}>
+						<Col key={resource.id} xs={24} sm={12} md={8} lg={8}>
 							<ResourceCard
 								resource={resource}
 								onView={onView}
