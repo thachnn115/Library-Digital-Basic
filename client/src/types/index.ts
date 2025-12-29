@@ -81,13 +81,6 @@ export type {
 	UpdateRatingRequest,
 } from "./rating.types";
 
-// AI types
-export type {
-	AiMessage,
-	AiChatRequest,
-	AiChatResponse,
-} from "./ai.types";
-
 // Stats types
 export type {
   TopUploaderResponse,

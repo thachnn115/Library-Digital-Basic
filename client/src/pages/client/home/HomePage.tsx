@@ -3,7 +3,6 @@ import {
 	SearchOutlined,
 	UploadOutlined,
 	FileTextOutlined,
-	RobotOutlined,
 	QuestionCircleOutlined,
 	ArrowRightOutlined,
 } from "@ant-design/icons";
@@ -146,26 +145,6 @@ const HomePage: React.FC = () => {
 
 			{/* Additional Features */}
 			<Row gutter={[16, 16]}>
-				<Col xs={24} sm={12}>
-					<Card
-						hoverable
-						onClick={() => navigate(ROUTES.AI_CHAT)}
-						style={{ cursor: "pointer" }}
-					>
-						<Space>
-							<RobotOutlined style={{ fontSize: "32px", color: "#1890ff" }} />
-							<div>
-								<Title level={5} style={{ margin: 0 }}>
-									Trợ lý AI
-								</Title>
-								<Paragraph style={{ margin: 0, color: "#666" }}>
-									Nhận hỗ trợ từ trợ lý AI về học liệu và hệ thống
-								</Paragraph>
-							</div>
-						</Space>
-					</Card>
-				</Col>
-
 				<Col xs={24} sm={12}>
 					<Card
 						hoverable

@@ -112,9 +112,9 @@ export const UserImportModal: React.FC<UserImportModalProps> = ({
 								<li>email (bắt buộc)</li>
 								<li>password (bắt buộc)</li>
 								<li>userIdentifier</li>
-								<li>gender (MALE/FEMALE/OTHER)</li>
+								<li>gender (Nam/Nữ/Khác)</li>
 								<li>fullName</li>
-								<li>userType (ADMIN/SUB_ADMIN/LECTURER) (bắt buộc)</li>
+								<li>userType (ADMIN/SUB_ADMIN/SUB-ADMIN/LECTURER) (bắt buộc)</li>
 								<li>departmentName</li>
 							</ol>
 							<p className="mt-2 text-xs text-gray-500">

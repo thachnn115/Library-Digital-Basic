@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button, Space, Input, Select, Card } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useDebounce } from '@/hooks/useDebounce';
 import { UserTable } from '@/components/modules/admin/UserManagement/UserTable';
 import { UserCreateModal } from '@/components/modules/admin/UserManagement/UserCreateModal';
 import { UserEditModal } from '@/components/modules/admin/UserManagement/UserEditModal';
@@ -29,32 +30,48 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	const queryClient = useQueryClient();
 
-	// Fetch users in department only
+	// Debounce search keyword
+	const debouncedSearchKeyword = useDebounce(searchKeyword, 500);
+
+	// Fetch users in department only (backend filters by department automatically for SUB_ADMIN)
 	const {
 		data: usersData,
 		isLoading,
 	} = useQuery({
-		queryKey: [
-			'users',
-			'department',
-			departmentId,
-			searchKeyword,
-			roleFilter,
-			statusFilter,
-		],
+		queryKey: ['users', 'department', departmentId],
 		queryFn: () =>
 			userApi.getAll({
-				keyword: searchKeyword || undefined,
-				departmentId,
-				roleId: roleFilter,
-				status: statusFilter as 'ACTIVE' | 'INACTIVE' | 'LOCKED' | undefined,
 				page: 0,
-				size: 100,
+				size: 1000, // Get all users for frontend filtering
 			}),
 		enabled: !!departmentId,
 	});
 
-	const users = usersData?.content || [];
+	// Filter users on frontend
+	const users = useMemo(() => {
+		if (!usersData?.content) return [];
+
+		let filtered = usersData.content;
+
+		// Filter by search keyword
+		if (debouncedSearchKeyword) {
+			const keyword = debouncedSearchKeyword.toLowerCase();
+			filtered = filtered.filter(
+				(user) =>
+					user.fullName?.toLowerCase().includes(keyword) ||
+					user.email?.toLowerCase().includes(keyword) ||
+					user.userIdentifier?.toLowerCase().includes(keyword) ||
+					user.phone?.toLowerCase().includes(keyword)
+			);
+		}
+
+		// Filter by status
+		if (statusFilter) {
+			filtered = filtered.filter((user) => user.status === statusFilter);
+		}
+
+		return filtered;
+	}, [usersData?.content, debouncedSearchKeyword, statusFilter]);
 
 	// Create user mutation (only LECTURER role in same department)
 	const createMutation = useMutation({
@@ -64,8 +81,42 @@ const SubAdminUserManagementPage: React.FC = () => {
 			setCreateModalOpen(false);
 			toast.success('Tạo giảng viên thành công!');
 		},
-		onError: () => {
-			toast.error('Tạo giảng viên thất bại. Vui lòng thử lại.');
+		onError: (error: unknown) => {
+			let errorMessage = 'Tạo giảng viên thất bại. Vui lòng thử lại.';
+
+			if (error && typeof error === "object" && "response" in error) {
+				const axiosError = error as {
+					response?: {
+						data?: {
+							message?: string;
+							error?: string;
+						};
+					};
+				};
+
+				const responseData = axiosError.response?.data;
+				if (responseData?.message) {
+					errorMessage = responseData.message;
+					// Check for duplicate entry error
+					if (
+						errorMessage.includes("Duplicate entry") ||
+						errorMessage.includes("user_identifier") ||
+						errorMessage.includes("UKiq3l4k8j33ecvygl0wli63yd2")
+					) {
+						errorMessage =
+							"Mã định danh đã tồn tại. Vui lòng sử dụng mã định danh khác.";
+					} else if (
+						errorMessage.includes("email") &&
+						(errorMessage.includes("Duplicate") || errorMessage.includes("unique"))
+					) {
+						errorMessage = "Email đã tồn tại. Vui lòng sử dụng email khác.";
+					}
+				} else if (responseData?.error) {
+					errorMessage = responseData.error;
+				}
+			}
+
+			toast.error(errorMessage);
 		},
 	});
 
@@ -100,11 +151,12 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	// Reset password mutation
 	const resetPasswordMutation = useMutation({
-		mutationFn: (id: number) => userApi.resetPassword(id),
+		mutationFn: ({ id, newPassword }: { id: number; newPassword: string }) =>
+			userApi.resetPassword(id, newPassword),
 		onSuccess: () => {
 			setResetPasswordModalOpen(false);
 			setSelectedUser(null);
-			toast.success('Đặt lại mật khẩu thành công! Mật khẩu mới đã được gửi qua email.');
+			toast.success('Đặt lại mật khẩu thành công!');
 		},
 		onError: () => {
 			toast.error('Đặt lại mật khẩu thất bại. Vui lòng thử lại.');
@@ -146,8 +198,8 @@ const SubAdminUserManagementPage: React.FC = () => {
 		setResetPasswordModalOpen(true);
 	};
 
-	const handleConfirmResetPassword = async (user: User) => {
-		await resetPasswordMutation.mutateAsync(user.id);
+	const handleConfirmResetPassword = async (user: User, newPassword: string) => {
+		await resetPasswordMutation.mutateAsync({ id: user.id, newPassword });
 	};
 
 	const handleClearFilters = () => {
@@ -207,6 +259,7 @@ const SubAdminUserManagementPage: React.FC = () => {
 				<UserTable
 					users={users}
 					loading={isLoading}
+					currentUser={user}
 					onEdit={handleEdit}
 					onDelete={handleDelete}
 					onResetPassword={handleResetPassword}
@@ -217,6 +270,7 @@ const SubAdminUserManagementPage: React.FC = () => {
 				open={createModalOpen}
 				onCancel={() => setCreateModalOpen(false)}
 				onSubmit={handleCreate}
+				currentUserType={user?.type}
 			/>
 
 			<UserEditModal
@@ -227,6 +281,7 @@ const SubAdminUserManagementPage: React.FC = () => {
 					setSelectedUser(null);
 				}}
 				onSubmit={handleUpdate}
+				currentUserType={user?.type}
 			/>
 
 			<UserResetPasswordModal

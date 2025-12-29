@@ -175,19 +175,5 @@ export const resourceApi = {
 	delete: async (id: string | number): Promise<void> => {
 		await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.RESOURCE.DELETE(id));
 	},
-
-	/**
-	 * Update resource approval status (ADMIN/SUB_ADMIN only)
-	 */
-	updateApprovalStatus: async (
-		id: string | number,
-		status: 'PENDING' | 'APPROVED' | 'REJECTED'
-	): Promise<Resource> => {
-		const response = await apiClient.put<ApiResponse<Resource>>(
-			API_ENDPOINTS.RESOURCE.UPDATE_APPROVAL(id),
-			{ status }
-		);
-		return response.data.data;
-	},
 };
 

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button, Space, Input, Select, Card, Modal } from "antd";
 import { PlusOutlined, SearchOutlined, UploadOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useDebounce } from "@/hooks/useDebounce";
 import { UserTable } from "@/components/modules/admin/UserManagement/UserTable";
 import { UserCreateModal } from "@/components/modules/admin/UserManagement/UserCreateModal";
 import { UserEditModal } from "@/components/modules/admin/UserManagement/UserEditModal";
@@ -36,33 +37,78 @@ const UserManagementPage: React.FC = () => {
 
 	const queryClient = useQueryClient();
 
+	// Debounce search keyword
+	const debouncedSearchKeyword = useDebounce(searchKeyword, 500);
+
 	// Fetch departments for filter
 	const { data: departments = [] } = useQuery({
 		queryKey: ["departments"],
 		queryFn: () => departmentApi.getAll(),
 	});
 
-	// Fetch users with filters
+	// Fetch all users (backend doesn't support filter parameters)
 	const { data: usersData, isLoading } = useQuery({
-		queryKey: [
-			"users",
-			searchKeyword,
-			departmentFilter,
-			roleFilter,
-			statusFilter,
-		],
+		queryKey: ["users"],
 		queryFn: () =>
 			userApi.getAll({
-				keyword: searchKeyword || undefined,
-				departmentId: departmentFilter,
-				roleId: roleFilter,
-				status: statusFilter as "ACTIVE" | "INACTIVE" | "LOCKED" | undefined,
 				page: 0,
-				size: 100,
+				size: 1000, // Get all users for frontend filtering
 			}),
 	});
 
-	const users = usersData?.content || [];
+	// Filter users on frontend
+	const users = useMemo(() => {
+		if (!usersData?.content) return [];
+
+		let filtered = usersData.content;
+
+		// Filter by search keyword
+		if (debouncedSearchKeyword) {
+			const keyword = debouncedSearchKeyword.toLowerCase();
+			filtered = filtered.filter(
+				(user) =>
+					user.fullName?.toLowerCase().includes(keyword) ||
+					user.email?.toLowerCase().includes(keyword) ||
+					user.userIdentifier?.toLowerCase().includes(keyword) ||
+					user.phone?.toLowerCase().includes(keyword)
+			);
+		}
+
+		// Filter by department
+		if (departmentFilter) {
+			filtered = filtered.filter(
+				(user) => user.department?.id === departmentFilter
+			);
+		}
+
+		// Filter by role (1=ADMIN, 2=SUB_ADMIN, 3=LECTURER)
+		if (roleFilter) {
+			const roleMap: Record<number, string> = {
+				1: "ADMIN",
+				2: "SUB_ADMIN",
+				3: "LECTURER",
+			};
+			const targetRole = roleMap[roleFilter];
+			if (targetRole) {
+				filtered = filtered.filter(
+					(user) => user.role === targetRole || user.type === targetRole
+				);
+			}
+		}
+
+		// Filter by status
+		if (statusFilter) {
+			filtered = filtered.filter((user) => user.status === statusFilter);
+		}
+
+		return filtered;
+	}, [
+		usersData?.content,
+		debouncedSearchKeyword,
+		departmentFilter,
+		roleFilter,
+		statusFilter,
+	]);
 
 	// Create user mutation
 	const createMutation = useMutation({
@@ -93,6 +139,20 @@ const UserManagementPage: React.FC = () => {
 				const responseData = axiosError.response?.data;
 				if (responseData?.message) {
 					errorMessage = responseData.message;
+					// Check for duplicate entry error
+					if (
+						errorMessage.includes("Duplicate entry") ||
+						errorMessage.includes("user_identifier") ||
+						errorMessage.includes("UKiq3l4k8j33ecvygl0wli63yd2")
+					) {
+						errorMessage =
+							"Mã định danh đã tồn tại. Vui lòng sử dụng mã định danh khác.";
+					} else if (
+						errorMessage.includes("email") &&
+						(errorMessage.includes("Duplicate") || errorMessage.includes("unique"))
+					) {
+						errorMessage = "Email đã tồn tại. Vui lòng sử dụng email khác.";
+					}
 				} else if (responseData?.error) {
 					errorMessage = responseData.error;
 				}
@@ -139,13 +199,12 @@ const UserManagementPage: React.FC = () => {
 
 	// Reset password mutation
 	const resetPasswordMutation = useMutation({
-		mutationFn: (id: string) => userApi.resetPassword(id),
+		mutationFn: ({ id, newPassword }: { id: string; newPassword: string }) =>
+			userApi.resetPassword(id, newPassword),
 		onSuccess: () => {
 			setResetPasswordModalOpen(false);
 			setSelectedUser(null);
-			toast.success(
-				"Đặt lại mật khẩu thành công! Mật khẩu mới đã được gửi qua email."
-			);
+			toast.success("Đặt lại mật khẩu thành công!");
 		},
 		onError: () => {
 			toast.error("Đặt lại mật khẩu thất bại. Vui lòng thử lại.");
@@ -181,8 +240,8 @@ const UserManagementPage: React.FC = () => {
 		setResetPasswordModalOpen(true);
 	};
 
-	const handleConfirmResetPassword = async (user: User) => {
-		await resetPasswordMutation.mutateAsync(user.id);
+	const handleConfirmResetPassword = async (user: User, newPassword: string) => {
+		await resetPasswordMutation.mutateAsync({ id: user.id, newPassword });
 	};
 
 	const handleClearFilters = () => {
@@ -282,6 +341,7 @@ const UserManagementPage: React.FC = () => {
 				open={createModalOpen}
 				onCancel={() => setCreateModalOpen(false)}
 				onSubmit={handleCreate}
+				currentUserType="ADMIN"
 			/>
 
 			<UserEditModal
@@ -292,6 +352,7 @@ const UserManagementPage: React.FC = () => {
 					setSelectedUser(null);
 				}}
 				onSubmit={handleUpdate}
+				currentUserType="ADMIN"
 			/>
 
 			<UserResetPasswordModal

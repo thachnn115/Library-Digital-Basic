@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
 	Table,
 	Button,
@@ -22,6 +22,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAuth } from "@/hooks/useAuth";
 import { courseApi } from "@/api/course.api";
 import { classroomApi } from "@/api/classroom.api";
 import { specializationApi } from "@/api/specialization.api";
@@ -39,6 +41,7 @@ const courseSchema = z.object({
  * Course Manager Component
  */
 export const CourseManager: React.FC = () => {
+	const { user } = useAuth();
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
@@ -46,11 +49,81 @@ export const CourseManager: React.FC = () => {
 
 	const queryClient = useQueryClient();
 
-	const { data: classrooms = [] } = useQuery({
+	// Debounce filter values
+	const [filterClassroomId, setFilterClassroomId] = useState<string>("");
+	const [filterSpecializationCode, setFilterSpecializationCode] =
+		useState<string>("");
+	const debouncedFilterClassroomId = useDebounce(filterClassroomId, 500);
+	const debouncedFilterSpecializationCode = useDebounce(
+		filterSpecializationCode,
+		500
+	);
+
+	// Fetch all classrooms - try to get from API (may fail for SUB_ADMIN, but we'll handle it)
+	const { data: allClassrooms = [], error: classroomsError } = useQuery({
 		queryKey: ["classrooms"],
 		queryFn: () => classroomApi.getAll(),
+		retry: false, // Don't retry if it fails (e.g., SUB_ADMIN doesn't have permission)
 	});
 
+	// Fetch courses first to get classrooms for SUB_ADMIN (fallback)
+	const { data: courses = [], isLoading } = useQuery({
+		queryKey: ["courses"],
+		queryFn: () => courseApi.getAll(),
+	});
+
+	// Get classrooms: from API if available, otherwise from courses (for SUB_ADMIN)
+	const classrooms = useMemo(() => {
+		const departmentId = user?.department?.id;
+
+		// If we got classrooms from API, filter by department for SUB_ADMIN
+		if (allClassrooms.length > 0 && !classroomsError) {
+			if (user?.type === "ADMIN") {
+				return allClassrooms;
+			}
+			// For SUB_ADMIN, filter by department
+			if (departmentId) {
+				return allClassrooms.filter(
+					(classroom) =>
+						classroom.specialization?.department?.id?.toString() ===
+						departmentId.toString()
+				);
+			}
+			return [];
+		}
+
+		// Fallback: get classrooms from courses (for SUB_ADMIN when API fails)
+		if (user?.type === "SUB_ADMIN" && departmentId) {
+			const uniqueClassrooms = new Map<
+				string,
+				NonNullable<Course["classroom"]>
+			>();
+			courses.forEach((course) => {
+				if (
+					course.classroom &&
+					course.classroom.specialization?.department?.id &&
+					course.classroom.specialization.department.id.toString() ===
+						departmentId.toString()
+				) {
+					uniqueClassrooms.set(
+						course.classroom.id.toString(),
+						course.classroom
+					);
+				}
+			});
+			return Array.from(uniqueClassrooms.values());
+		}
+
+		return [];
+	}, [
+		allClassrooms,
+		classroomsError,
+		courses,
+		user?.type,
+		user?.department?.id,
+	]);
+
+	// Get all specializations (filtered by backend for SUB_ADMIN)
 	const { data: specializations = [] } = useQuery({
 		queryKey: ["specializations"],
 		queryFn: () => specializationApi.getAll(),
@@ -66,22 +139,29 @@ export const CourseManager: React.FC = () => {
 	const lecturers =
 		lecturersData?.content?.filter((user) => user.type === "LECTURER") || [];
 
-	const [filterClassroomId, setFilterClassroomId] = useState<string>("");
-	const [filterSpecializationCode, setFilterSpecializationCode] = useState<string>("");
+	// Filter courses on frontend
+	const filteredCourses = useMemo(() => {
+		let filtered = courses;
 
-	const { data: courses = [], isLoading } = useQuery({
-		queryKey: ["courses", filterClassroomId, filterSpecializationCode],
-		queryFn: () => courseApi.getAll({
-			specializationCode: filterSpecializationCode || undefined,
-			// Note: Backend doesn't support classroomId filter directly,
-			// but we can filter on frontend
-		}),
-	});
+		// Filter by classroom
+		if (debouncedFilterClassroomId) {
+			filtered = filtered.filter(
+				(course) =>
+					course.classroom?.id?.toString() === debouncedFilterClassroomId
+			);
+		}
 
-	// Filter by classroom on frontend if needed
-	const filteredCourses = filterClassroomId
-		? courses.filter((course) => course.classroom?.id?.toString() === filterClassroomId)
-		: courses;
+		// Filter by specialization
+		if (debouncedFilterSpecializationCode) {
+			filtered = filtered.filter(
+				(course) =>
+					course.classroom?.specialization?.code ===
+					debouncedFilterSpecializationCode
+			);
+		}
+
+		return filtered;
+	}, [courses, debouncedFilterClassroomId, debouncedFilterSpecializationCode]);
 
 	const {
 		control,
@@ -190,12 +270,16 @@ export const CourseManager: React.FC = () => {
 		{
 			title: "Khoa",
 			key: "department",
-			render: (_, record) => record.classroom?.specialization?.department?.name || "-",
+			render: (_, record) =>
+				record.classroom?.specialization?.department?.name || "-",
 		},
 		{
 			title: "Chương trình Đào tạo",
 			key: "program",
-			render: (_, record) => record.classroom?.specialization?.program?.name || record.classroom?.specialization?.trainingProgram?.name || "-",
+			render: (_, record) =>
+				record.classroom?.specialization?.program?.name ||
+				record.classroom?.specialization?.trainingProgram?.name ||
+				"-",
 		},
 		{
 			title: "Chuyên ngành",
@@ -284,10 +368,12 @@ export const CourseManager: React.FC = () => {
 					filterOption={(input, option) =>
 						(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
 					}
-					options={classrooms.map((classroom) => ({
-						label: `${classroom.code} - ${classroom.name}`,
-						value: classroom.id.toString(),
-					}))}
+					options={classrooms
+						.filter((classroom) => classroom != null)
+						.map((classroom) => ({
+							label: `${classroom.code} - ${classroom.name}`,
+							value: classroom.id.toString(),
+						}))}
 					style={{ width: 300 }}
 				/>
 				<Select
@@ -362,10 +448,12 @@ export const CourseManager: React.FC = () => {
 											.toLowerCase()
 											.includes(input.toLowerCase())
 									}
-									options={classrooms.map((classroom) => ({
-										label: `${classroom.code} - ${classroom.name}`,
-										value: classroom.id.toString(),
-									}))}
+									options={classrooms
+										.filter((classroom) => classroom != null)
+										.map((classroom) => ({
+											label: `${classroom.code} - ${classroom.name}`,
+											value: classroom.id.toString(),
+										}))}
 								/>
 							)}
 						/>
@@ -456,22 +544,44 @@ export const CourseManager: React.FC = () => {
 							{selectedCourse.description || "-"}
 						</Descriptions.Item>
 						<Descriptions.Item label="Khoa">
-							{selectedCourse.classroom?.specialization?.department?.name || "-"} ({selectedCourse.classroom?.specialization?.department?.code || "-"})
+							{selectedCourse.classroom?.specialization?.department?.name ||
+								"-"}{" "}
+							(
+							{selectedCourse.classroom?.specialization?.department?.code ||
+								"-"}
+							)
 						</Descriptions.Item>
 						<Descriptions.Item label="Chương trình Đào tạo">
-							{selectedCourse.classroom?.specialization?.program?.name || selectedCourse.classroom?.specialization?.trainingProgram?.name || "-"} ({selectedCourse.classroom?.specialization?.program?.code || selectedCourse.classroom?.specialization?.trainingProgram?.code || "-"})
+							{selectedCourse.classroom?.specialization?.program?.name ||
+								selectedCourse.classroom?.specialization?.trainingProgram
+									?.name ||
+								"-"}{" "}
+							(
+							{selectedCourse.classroom?.specialization?.program?.code ||
+								selectedCourse.classroom?.specialization?.trainingProgram
+									?.code ||
+								"-"}
+							)
 						</Descriptions.Item>
 						<Descriptions.Item label="Chuyên ngành">
-							{selectedCourse.classroom?.specialization?.name || "-"} ({selectedCourse.classroom?.specialization?.code || "-"})
+							{selectedCourse.classroom?.specialization?.name || "-"} (
+							{selectedCourse.classroom?.specialization?.code || "-"})
 						</Descriptions.Item>
 						<Descriptions.Item label="Khóa">
-							{selectedCourse.classroom?.cohort?.code || "-"} ({selectedCourse.classroom?.cohort?.startYear || ""}{selectedCourse.classroom?.cohort?.endYear ? `-${selectedCourse.classroom.cohort.endYear}` : ""})
+							{selectedCourse.classroom?.cohort?.code || "-"} (
+							{selectedCourse.classroom?.cohort?.startYear || ""}
+							{selectedCourse.classroom?.cohort?.endYear
+								? `-${selectedCourse.classroom.cohort.endYear}`
+								: ""}
+							)
 						</Descriptions.Item>
 						<Descriptions.Item label="Lớp">
-							{selectedCourse.classroom?.name || "-"} ({selectedCourse.classroom?.code || "-"})
+							{selectedCourse.classroom?.name || "-"} (
+							{selectedCourse.classroom?.code || "-"})
 						</Descriptions.Item>
 						<Descriptions.Item label="Giảng viên">
-							{selectedCourse.instructor?.fullName || "-"} ({selectedCourse.instructor?.email || "-"})
+							{selectedCourse.instructor?.fullName || "-"} (
+							{selectedCourse.instructor?.email || "-"})
 						</Descriptions.Item>
 						{selectedCourse.createdAt && (
 							<Descriptions.Item label="Ngày tạo">

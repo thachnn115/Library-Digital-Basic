@@ -16,14 +16,18 @@ const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
 
 // Lecturer pages
 const HomePage = lazy(() => import("@/pages/client/home/HomePage"));
-const ResourceSearchPage = lazy(() => import("@/pages/lecturer/ResourceSearchPage"));
+const ResourceSearchPage = lazy(
+	() => import("@/pages/lecturer/ResourceSearchPage")
+);
 const MyResourcesPage = lazy(() => import("@/pages/lecturer/MyResourcesPage"));
-const ResourceUploadPage = lazy(() => import("@/pages/lecturer/ResourceUploadPage"));
-const ResourceDetailPage = lazy(() => import("@/pages/lecturer/ResourceDetailPage"));
+const ResourceUploadPage = lazy(
+	() => import("@/pages/lecturer/ResourceUploadPage")
+);
+const ResourceDetailPage = lazy(
+	() => import("@/pages/lecturer/ResourceDetailPage")
+);
 const ProfilePage = lazy(() => import("@/pages/lecturer/ProfilePage"));
 const GuidePage = lazy(() => import("@/pages/lecturer/GuidePage"));
-const ContactPage = lazy(() => import("@/pages/lecturer/ContactPage"));
-const AiChatPage = lazy(() => import("@/pages/lecturer/AiChatPage"));
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import("@/pages/admin/DashboardPage"));
@@ -32,9 +36,6 @@ const UserManagementPage = lazy(
 );
 const CategoryManagementPage = lazy(
 	() => import("@/pages/admin/CategoryManagementPage")
-);
-const ResourceApprovalPage = lazy(
-	() => import("@/pages/admin/ResourceApprovalPage")
 );
 const SystemStatsPage = lazy(() => import("@/pages/admin/SystemStatsPage"));
 
@@ -67,14 +68,11 @@ export const ROUTES = {
 	MY_RESOURCES: "/resources/my-resources",
 	PROFILE: "/profile",
 	GUIDE: "/guide",
-	CONTACT: "/contact",
-	AI_CHAT: "/ai/chat",
 
 	// Admin routes
 	ADMIN_DASHBOARD: "/admin/dashboard",
 	ADMIN_USERS: "/admin/users",
 	ADMIN_CATEGORIES: "/admin/categories",
-	ADMIN_RESOURCES_APPROVAL: "/admin/resources/approval",
 	ADMIN_STATS: "/admin/stats",
 
 	// Sub-Admin routes
@@ -161,18 +159,6 @@ export const routes: RouteConfig[] = [
 		isProtected: true,
 		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER"],
 	},
-	{
-		path: ROUTES.CONTACT,
-		element: ContactPage,
-		isProtected: true,
-		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER"],
-	},
-	{
-		path: ROUTES.AI_CHAT,
-		element: AiChatPage,
-		isProtected: true,
-		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER"],
-	},
 
 	// Admin routes (protected)
 	{
@@ -192,12 +178,6 @@ export const routes: RouteConfig[] = [
 		element: CategoryManagementPage,
 		isProtected: true,
 		requiredRoles: ["ADMIN"],
-	},
-	{
-		path: ROUTES.ADMIN_RESOURCES_APPROVAL,
-		element: ResourceApprovalPage,
-		isProtected: true,
-		requiredRoles: ["ADMIN", "SUB_ADMIN"],
 	},
 	{
 		path: ROUTES.ADMIN_STATS,

@@ -23,6 +23,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/useDebounce";
 import { trainingProgramApi } from "@/api/training-program.api";
 import type {
 	TrainingProgram,
@@ -47,14 +48,18 @@ export const TrainingProgramManager: React.FC = () => {
 	const [filterCode, setFilterCode] = useState<string>("");
 	const [filterName, setFilterName] = useState<string>("");
 
+	// Debounce filter values to avoid too many API calls
+	const debouncedFilterCode = useDebounce(filterCode, 500);
+	const debouncedFilterName = useDebounce(filterName, 500);
+
 	const queryClient = useQueryClient();
 
 	const { data: programs = [], isLoading } = useQuery({
-		queryKey: ["training-programs", filterCode, filterName],
+		queryKey: ["training-programs", debouncedFilterCode, debouncedFilterName],
 		queryFn: () =>
 			trainingProgramApi.getAll({
-				code: filterCode || undefined,
-				name: filterName || undefined,
+				code: debouncedFilterCode || undefined,
+				name: debouncedFilterName || undefined,
 			}),
 	});
 

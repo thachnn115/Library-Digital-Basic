@@ -25,6 +25,7 @@ interface UserEditModalProps {
 	user: User | null;
 	onCancel: () => void;
 	onSubmit: (id: string, data: UpdateUserRequest) => Promise<void>;
+	currentUserType?: "ADMIN" | "SUB_ADMIN" | "LECTURER";
 }
 
 /**
@@ -35,7 +36,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({
 	user,
 	onCancel,
 	onSubmit,
+	currentUserType,
 }) => {
+	const isSubAdmin = currentUserType === "SUB_ADMIN";
 	const {
 		control,
 		handleSubmit,
@@ -80,11 +83,19 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({
 		}
 	};
 
-	const typeOptions = [
-		{ label: 'Quản trị viên', value: 'ADMIN' },
-		{ label: 'Quản trị khoa', value: 'SUB_ADMIN' },
-		{ label: 'Giảng viên', value: 'LECTURER' },
-	];
+	// Filter type options based on current user type
+	const typeOptions = isSubAdmin
+		? [
+				// SUB_ADMIN can change to SUB_ADMIN or LECTURER, but not ADMIN
+				{ label: 'Quản trị khoa', value: 'SUB_ADMIN' },
+				{ label: 'Giảng viên', value: 'LECTURER' },
+		  ]
+		: [
+				// ADMIN can change to any type
+				{ label: 'Quản trị viên', value: 'ADMIN' },
+				{ label: 'Quản trị khoa', value: 'SUB_ADMIN' },
+				{ label: 'Giảng viên', value: 'LECTURER' },
+		  ];
 
 	if (!user) return null;
 
@@ -190,7 +201,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({
 				<Form.Item
 					label="Vai trò"
 					validateStatus={errors.type ? 'error' : ''}
-					help={errors.type?.message}
+					help={errors.type?.message || (isSubAdmin && "SUB_ADMIN không thể thay đổi vai trò thành Quản trị viên")}
 				>
 					<Controller
 						name="type"
