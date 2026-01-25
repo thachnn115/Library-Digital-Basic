@@ -143,41 +143,47 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 	);
 
 	return (
-		<Card className={clsx("w-full", className)}>
-			<div className="space-y-4">
+		<div className={clsx("premium-card p-6 bg-slate-50/30 backdrop-blur-md border-slate-200/60 overflow-visible", className)}>
+			<div className="space-y-6">
 				<div className="flex items-center justify-between">
-					<h3 className="text-lg font-semibold">Bộ lọc nâng cao</h3>
+					<div>
+						<h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Bộ lọc thông minh</h3>
+						<p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Precision Analytics Enabled</p>
+					</div>
 					{hasActiveFilters && (
 						<Button
 							icon={<ClearOutlined />}
 							onClick={handleClear}
 							size="small"
 							type="link"
+							className="text-slate-400 hover:text-rose-500 font-bold text-[11px] uppercase tracking-widest"
 						>
-							Xóa tất cả
+							Làm mới
 						</Button>
 					)}
 				</div>
 
-				<Divider className="my-2" />
+				<div className="h-px bg-slate-200/50 w-full" />
 
-				{/* Display Department for LECTURER (read-only) */}
+				{/* Display Department for LECTURER (Elite Badge) */}
 				{user?.type === "LECTURER" && user?.department && (
-					<div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-						<p className="text-sm text-blue-700">
-							{user.department.name} ({user.department.code})
-						</p>
+					<div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-500/5 border border-blue-500/10 mb-2">
+						<div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+						<span className="text-[11px] font-black text-blue-700 uppercase tracking-wider">
+							{user.department.name}
+						</span>
+						<span className="text-[10px] font-bold text-blue-400 ml-auto">{user.department.code}</span>
 					</div>
 				)}
 
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-					<div>
-						<label className="block text-sm font-medium mb-2">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
 							Chương trình đào tạo
 						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn chương trình đào tạo"
+							placeholder="Select Programs"
 							value={currentFilters.programCode}
 							onChange={(val) => handleFilterChange("programCode", val)}
 							className="w-full"
@@ -192,13 +198,13 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 						</Select>
 					</div>
 
-					<div>
-						<label className="block text-sm font-medium mb-2">
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
 							Chuyên ngành
 						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn chuyên ngành"
+							placeholder="Select Specializations"
 							value={currentFilters.specializationCode}
 							onChange={(val) => handleFilterChange("specializationCode", val)}
 							className="w-full"
@@ -213,11 +219,13 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 						</Select>
 					</div>
 
-					<div>
-						<label className="block text-sm font-medium mb-2">Khóa</label>
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
+							Khóa học
+						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn khóa"
+							placeholder="Select Cohorts"
 							value={currentFilters.cohortCode}
 							onChange={(val) => handleFilterChange("cohortCode", val)}
 							className="w-full"
@@ -237,11 +245,13 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 						</Select>
 					</div>
 
-					<div>
-						<label className="block text-sm font-medium mb-2">Lớp</label>
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
+							Lớp học phần
+						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn lớp"
+							placeholder="Select Classes"
 							value={currentFilters.classroomId}
 							onChange={(val) => handleFilterChange("classroomId", val)}
 							className="w-full"
@@ -261,11 +271,13 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 						</Select>
 					</div>
 
-					<div>
-						<label className="block text-sm font-medium mb-2">Giảng viên</label>
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
+							Cố vấn / Giảng viên
+						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn giảng viên"
+							placeholder="Select Lecturers"
 							value={currentFilters.lecturerId}
 							onChange={(val) => handleFilterChange("lecturerId", val)}
 							className="w-full"
@@ -280,13 +292,13 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 						</Select>
 					</div>
 
-					<div>
-						<label className="block text-sm font-medium mb-2">
-							Loại học liệu
+					<div className="space-y-2">
+						<label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
+							Phân loại học liệu
 						</label>
 						<Select
 							mode="multiple"
-							placeholder="Chọn loại học liệu"
+							placeholder="Select Types"
 							value={currentFilters.typeId}
 							onChange={(val) => handleFilterChange("typeId", val)}
 							className="w-full"
@@ -302,6 +314,6 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 					</div>
 				</div>
 			</div>
-		</Card>
+		</div>
 	);
 };

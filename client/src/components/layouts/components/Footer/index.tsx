@@ -11,61 +11,39 @@ export const Footer: React.FC = () => {
 	const currentYear = new Date().getFullYear();
 
 	return (
-		<AntFooter
-			className="border-t-0! mt-auto! relative overflow-hidden"
-			style={{
-				background: "linear-gradient(180deg, #A3D5FF 0%, #8BC5F0 100%)",
-			}}
-		>
-			{/* Decorative overlay */}
-			<div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
-			
-			<div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+		<AntFooter className="bg-[#f8fafc] border-t border-slate-200/60 py-10 px-6 mt-auto">
+			<div className="max-w-[1400px] mx-auto">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-10">
 					{/* About Section */}
 					<div className="lg:col-span-2">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shadow-lg">
+						<div className="flex items-center gap-3 mb-5">
+							<div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-xl shadow-md">
 								📚
 							</div>
-							<div>
-								<h3 className="text-base font-bold text-slate-800 mb-1">
-									Hệ thống Quản lý Học liệu Số
-								</h3>
-								<p className="text-xs text-slate-600/90">
-									Thư viện số hiện đại
-								</p>
-							</div>
+							<h3 className="text-base font-bold text-slate-800 tracking-tight">
+								Hệ thống Thư viện Số
+							</h3>
 						</div>
-						<p className="text-sm text-slate-700 leading-relaxed max-w-md">
-							Hệ thống quản lý và chia sẻ học liệu số cho giảng viên và sinh
-							viên. Hỗ trợ tìm kiếm, duyệt và quản lý tài liệu học tập một cách
-							hiệu quả.
+						<p className="text-[13px] text-slate-500 leading-relaxed max-w-sm font-medium">
+							Nền tảng quản lý và lưu trữ học liệu số khoa học, hỗ trợ giảng tập và
+							nghiên cứu hiệu quả cho toàn bộ giảng viên và sinh viên nhà trường.
 						</p>
 					</div>
 
 					{/* Quick Links Section */}
 					<div>
-						<h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wide">
-							Liên kết nhanh
+						<h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
+							Điều hướng nhanh
 						</h3>
-						<ul className="space-y-2.5">
+						<ul className="space-y-3">
 							<li>
-								<Link
-									to="/guide"
-									className="text-sm text-slate-700 hover:text-slate-900 transition-all duration-200 flex items-center gap-2 group"
-								>
-									<span className="w-1.5 h-1.5 rounded-full bg-slate-400 group-hover:bg-slate-600 transition-colors" />
-									Hướng dẫn sử dụng
+								<Link to="/resources/search" className="text-[13px] text-slate-600 hover:text-blue-600 font-semibold transition-colors">
+									Tra cứu học liệu
 								</Link>
 							</li>
 							<li>
-								<Link
-									to="/resources/search"
-									className="text-sm text-slate-700 hover:text-slate-900 transition-all duration-200 flex items-center gap-2 group"
-								>
-									<span className="w-1.5 h-1.5 rounded-full bg-slate-400 group-hover:bg-slate-600 transition-colors" />
-									Tìm kiếm học liệu
+								<Link to="/guide" className="text-[13px] text-slate-600 hover:text-blue-600 font-semibold transition-colors">
+									Hướng dẫn hệ thống
 								</Link>
 							</li>
 						</ul>
@@ -73,58 +51,42 @@ export const Footer: React.FC = () => {
 
 					{/* Contact Section */}
 					<div>
-						<h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wide">
-							Liên hệ
+						<h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
+							Hỗ trợ kỹ thuật
 						</h3>
-						<ul className="space-y-3 text-sm text-slate-700">
-							<li className="flex items-center gap-3 group">
-								<div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-base shadow-sm group-hover:bg-white/30 transition-colors">
+						<ul className="space-y-4">
+							<li className="flex items-center gap-3">
+								<div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-sm">
 									✉
 								</div>
-								<a 
-									href="mailto:support@library.edu.vn"
-									className="hover:text-slate-900 transition-colors duration-200"
-								>
-									support@library.edu.vn
+								<a href="mailto:it@university.edu.vn" className="text-[13px] text-slate-600 hover:text-blue-600 font-semibold transition-colors">
+									it@university.edu.vn
 								</a>
 							</li>
-							<li className="flex items-center gap-3 group">
-								<div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-base shadow-sm group-hover:bg-white/30 transition-colors">
+							<li className="flex items-center gap-3">
+								<div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-sm">
 									📞
 								</div>
-								<a 
-									href="tel:+842412345678"
-									className="hover:text-slate-900 transition-colors duration-200"
-								>
-									(024) 1234 5678
-								</a>
+								<span className="text-[13px] text-slate-600 font-semibold">
+									(024) 3333 8888
+								</span>
 							</li>
 						</ul>
 					</div>
 				</div>
 
 				{/* Copyright Section */}
-				<div className="pt-6 border-t border-white/30">
-					<div className="flex flex-col md:flex-row justify-between items-center gap-4">
-						<p className="text-sm text-slate-700 text-center md:text-left font-medium">
-							© {currentYear} Hệ thống Quản lý Học liệu Số. Tất cả quyền được
-							bảo lưu.
-						</p>
-						<div className="flex gap-4 text-sm text-slate-700">
-							<a
-								href="#"
-								className="hover:text-slate-900 transition-colors duration-200 font-medium"
-							>
-								Chính sách bảo mật
-							</a>
-							<span className="text-slate-400">•</span>
-							<a
-								href="#"
-								className="hover:text-slate-900 transition-colors duration-200 font-medium"
-							>
-								Điều khoản sử dụng
-							</a>
-						</div>
+				<div className="pt-8 border-t border-slate-200/50 flex flex-col md:flex-row justify-between items-center gap-4">
+					<p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
+						© {currentYear} UNIVERSITY DIGITAL LIBRARY • ALL RIGHTS RESERVED
+					</p>
+					<div className="flex gap-6 items-center">
+						<a href="#" className="text-[11px] text-slate-500 hover:text-blue-600 font-bold uppercase tracking-widest transition-colors">
+							Privacy Policy
+						</a>
+						<a href="#" className="text-[11px] text-slate-500 hover:text-blue-600 font-bold uppercase tracking-widest transition-colors">
+							Terms of Use
+						</a>
 					</div>
 				</div>
 			</div>

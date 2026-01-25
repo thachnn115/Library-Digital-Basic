@@ -168,7 +168,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 	};
 
 	return (
-		<Layout className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+		<Layout className="min-h-screen bg-[#f8fafc] overflow-hidden">
+			{/* Professional Sider */}
 			<Sider
 				trigger={null}
 				collapsible
@@ -177,68 +178,56 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 				onBreakpoint={(broken) => {
 					if (broken) setCollapsed(true);
 				}}
-				className="border-r-0! shadow-xl! relative overflow-hidden"
-				style={{
-					background: "linear-gradient(180deg, #A3D5FF 0%, #8BC5F0 100%)",
-				}}
-				width={240}
+				width={260}
 				collapsedWidth={80}
+				className="glass-effect !bg-white/80 border-r border-slate-200/60 transition-all duration-300 z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
 			>
-				{/* Decorative gradient overlay */}
-				<div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-
-				{/* Logo/Brand Section */}
-				<div className="h-16 flex items-center border-b border-white/30 px-4 relative z-10 bg-white/5 backdrop-blur-sm">
-					{!collapsed ? (
-						<div className="flex items-center gap-3 w-full">
-							<div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl shadow-md shrink-0">
-								📚
-							</div>
-							<div className="flex-1 min-w-0">
-								<Text className="text-base font-bold text-slate-800 leading-tight block truncate">
-									Quản lý Học liệu
+				{/* Logo Section */}
+				<div className="h-20 flex items-center px-6 border-b border-slate-100">
+					<div className="flex items-center gap-3 overflow-hidden">
+						<div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-xl shadow-md shrink-0">
+							📚
+						</div>
+						{!collapsed && (
+							<div className="flex flex-col min-w-0">
+								<Text className="text-sm font-bold text-slate-800 leading-tight truncate">
+									UNIVERSITY LIBRARY
 								</Text>
-								<Text className="text-xs text-slate-600/80 block truncate">
-									Thư viện Số
+								<Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
+									Hệ thống Học liệu
 								</Text>
 							</div>
-						</div>
-					) : (
-						<div className="flex items-center justify-center w-full">
-							<div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl shadow-md">
-								📚
-							</div>
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 
-				{/* Menu */}
-				<Menu
-					mode="inline"
-					selectedKeys={[location.pathname]}
-					items={menuItems}
-					onClick={handleMenuClick}
-					className="border-r-0! bg-transparent! mt-4! px-3! relative z-10"
-					style={{
-						backgroundColor: "transparent",
-						color: "#1e293b",
-					}}
-					theme="light"
-				/>
+				{/* Navigation Menu */}
+				<div className="mt-6 flex-1 overflow-y-auto px-2">
+					<Menu
+						mode="inline"
+						selectedKeys={[location.pathname]}
+						items={menuItems}
+						onClick={handleMenuClick}
+						className="border-r-0 bg-transparent"
+						theme="light"
+					/>
+				</div>
 			</Sider>
-			<Layout className="flex-1 flex flex-col">
-				{/* Header */}
+
+			<Layout className="flex flex-col">
+				{/* Refined Header */}
 				<Header
 					collapsed={collapsed}
 					onToggleCollapse={() => setCollapsed(!collapsed)}
 				/>
 
-				{/* Content */}
-				<Content className="m-6 flex-1 overflow-auto">
-					<div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 p-6 md:p-8 min-h-[60vh] backdrop-blur-sm bg-white/95">
+				{/* Optimized Content Area */}
+				<Content className="p-6 md:p-8 overflow-y-auto relative z-10">
+					<div className="max-w-[1400px] mx-auto page-fade-in min-h-full flex flex-col">
 						{children}
 					</div>
 				</Content>
+
 				<Footer />
 			</Layout>
 

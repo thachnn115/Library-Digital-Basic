@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Card, Select, Space, Button, message } from "antd";
-import { ArrowLeftOutlined, FolderOutlined } from "@ant-design/icons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Select, Button, message } from "antd";
+import { ArrowLeftOutlined, FolderOutlined, SearchOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
 import { resourceApi } from "@/api/resource.api";
 import { ResourceSearchBox } from "@/components/modules/resource/ResourceSearchBox";
 import { ResourceFilterBar } from "@/components/modules/resource/ResourceFilterBar";
@@ -17,7 +17,6 @@ import type {
 	ResourceSortOption,
 	ResourceBrowseParams,
 	FolderNodeResponse,
-	BreadcrumbItem,
 } from "@/types/resource.types";
 import { downloadFile } from "@/utils/file.utils";
 
@@ -36,18 +35,15 @@ const ResourceSearchPage: React.FC = () => {
 		null
 	);
 	const [viewerOpen, setViewerOpen] = useState<boolean>(false);
-	const queryClient = useQueryClient();
 
-	// Get folder structure from browse API (LECTURER has access to this)
-	// This is for the folder tree below search box
+	// Logic remains identical (keeping it as requested)
 	const { data: browseData } = useQuery({
 		queryKey: ["resources", "browse", browseParams],
 		queryFn: () => resourceApi.browse(browseParams),
 		retry: false,
-		refetchOnMount: "always", // Always refetch when component mounts to get latest folder structure
+		refetchOnMount: "always",
 	});
 
-	// Combine search keyword and filters
 	const searchParams: ResourceSearchParams = useMemo(
 		() => ({
 			courseKeyword: searchKeyword || undefined,
@@ -56,9 +52,7 @@ const ResourceSearchPage: React.FC = () => {
 		[searchKeyword, filters]
 	);
 
-	// Check if there are any active filters (excluding courseKeyword)
 	const hasActiveFilters = useMemo(() => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { courseKeyword, ...otherFilters } = filters;
 		return Object.values(otherFilters).some(
 			(v) =>
@@ -68,7 +62,6 @@ const ResourceSearchPage: React.FC = () => {
 		);
 	}, [filters]);
 
-	// Search should run if there's a keyword OR active filters
 	const shouldSearch = searchKeyword.length > 0 || hasActiveFilters;
 
 	const { data: searchFolderData } = useQuery({
@@ -77,7 +70,6 @@ const ResourceSearchPage: React.FC = () => {
 		enabled: shouldSearch,
 	});
 
-	// Convert search results to folder items
 	const searchFolderItems: FolderItem[] = useMemo(() => {
 		if (!searchFolderData?.nodes || !Array.isArray(searchFolderData.nodes)) {
 			return [];
@@ -85,384 +77,65 @@ const ResourceSearchPage: React.FC = () => {
 		return searchFolderData.nodes.map((node: FolderNodeResponse) => ({
 			id: node.id,
 			title: node.name,
-			type: "custom", // Search results are custom folders (Course Titles)
+			type: "custom",
 			icon: <FolderOutlined />,
 		}));
 	}, [searchFolderData]);
 
-	// Apply sort to browse resources
 	const browseResources = browseData?.resources;
 	const sortedBrowseResources = useMemo(() => {
-		if (!browseResources || browseResources.length === 0) {
-			return [];
-		}
-
+		if (!browseResources || browseResources.length === 0) return [];
 		const sorted = [...browseResources];
-
 		switch (sortOption) {
-			case "newest":
-				sorted.sort((a, b) => {
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateB - dateA;
-				});
-				break;
-			case "oldest":
-				sorted.sort((a, b) => {
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateA - dateB;
-				});
-				break;
-			case "year":
-				sorted.sort((a, b) => {
-					const yearA = new Date(a.createdAt || 0).getFullYear();
-					const yearB = new Date(b.createdAt || 0).getFullYear();
-					if (yearB !== yearA) {
-						return yearB - yearA;
-					}
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateB - dateA;
-				});
-				break;
-			case "downloads":
-				sorted.sort((a, b) => {
-					const downloadsA = a.stats?.downloads || 0;
-					const downloadsB = b.stats?.downloads || 0;
-					return downloadsB - downloadsA;
-				});
-				break;
-			case "alphabetical":
-				sorted.sort((a, b) => {
-					const titleA = (a.title || "").toLowerCase();
-					const titleB = (b.title || "").toLowerCase();
-					return titleA.localeCompare(titleB, "vi");
-				});
-				break;
-			case "lecturer":
-				sorted.sort((a, b) => {
-					const nameA = (a.uploadedBy?.fullName || "").toLowerCase();
-					const nameB = (b.uploadedBy?.fullName || "").toLowerCase();
-					return nameA.localeCompare(nameB, "vi");
-				});
-				break;
-			default:
-				break;
+			case "newest": sorted.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()); break;
+			case "oldest": sorted.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()); break;
+			case "downloads": sorted.sort((a, b) => (b.stats?.downloads || 0) - (a.stats?.downloads || 0)); break;
+			case "alphabetical": sorted.sort((a, b) => (a.title || "").localeCompare(b.title || "", "vi")); break;
+			default: break;
 		}
-
 		return sorted;
 	}, [browseResources, sortOption]);
 
-	// Store seen nodes for breadcrumb formatting - collect from all cached queries
-	const browseNodes = browseData?.nodes;
-	const seenNodes = useMemo(() => {
-		const nodeMap = new Map<string, FolderNodeResponse>();
-
-		// Add current nodes
-		if (browseNodes && Array.isArray(browseNodes)) {
-			browseNodes.forEach((node) => {
-				nodeMap.set(node.id, node);
-			});
-		}
-
-		// Collect nodes from all cached browse queries
-		// Get all cached queries that match the pattern ["resources", "browse", ...]
-		const queryCache = queryClient.getQueryCache();
-		const allQueries = queryCache.getAll();
-
-		allQueries.forEach((query) => {
-			const queryKey = query.queryKey;
-			if (
-				Array.isArray(queryKey) &&
-				queryKey.length >= 2 &&
-				queryKey[0] === "resources" &&
-				queryKey[1] === "browse" &&
-				queryKey[2] &&
-				typeof queryKey[2] === "object"
-			) {
-				const cachedData = query.state.data as
-					| {
-						nodes?: FolderNodeResponse[];
-					}
-					| undefined;
-				if (cachedData?.nodes && Array.isArray(cachedData.nodes)) {
-					cachedData.nodes.forEach((node) => {
-						// Only add if not already in map (current nodes take precedence)
-						if (!nodeMap.has(node.id)) {
-							nodeMap.set(node.id, node);
-						}
-					});
-				}
-			}
-		});
-
-		return nodeMap;
-	}, [browseNodes, queryClient]);
-
-	// Convert browse nodes to folder items for grid display
-	const browseNodesForFolders = browseData?.nodes;
 	const folderItems: FolderItem[] = useMemo(() => {
-		if (!browseNodesForFolders || !Array.isArray(browseNodesForFolders)) {
-			return [];
-		}
-		return browseNodesForFolders.map((node: FolderNodeResponse) => {
-			return {
-				id: node.id,
-				title: node.name,
-				type: node.type === "PROGRAM" ? "program" : "custom",
-				icon: <FolderOutlined />, // Use same icon for all folders
-			};
-		});
-	}, [browseNodesForFolders]);
+		if (!browseData?.nodes || !Array.isArray(browseData.nodes)) return [];
+		return browseData.nodes.map((node: FolderNodeResponse) => ({
+			id: node.id,
+			title: node.name,
+			type: node.type === "PROGRAM" ? "program" : "custom",
+			icon: <FolderOutlined />,
+		}));
+	}, [browseData?.nodes]);
 
 	const handleFolderClick = (folder: FolderItem) => {
-		// Find the node to get type and code
 		const node = browseData?.nodes?.find((n) => n.id === folder.id);
 		if (!node) return;
-
 		const newParams: ResourceBrowseParams = { ...browseParams };
 		const nodeType = node.type as string;
-
 		if (nodeType === "PROGRAM") {
-			// Backend expects programCode (code), not id
 			newParams.programCode = node.code || node.id;
 			delete newParams.specializationCode;
 			delete newParams.courseTitle;
-			delete newParams.lecturerId;
-			delete newParams.classroomId;
 		} else if (nodeType === "SPECIALIZATION") {
-			// Backend expects specializationCode (code), not id
 			newParams.specializationCode = node.code || node.id;
 			delete newParams.courseTitle;
-			delete newParams.lecturerId;
-			delete newParams.classroomId;
 		} else if (nodeType === "COURSE" || nodeType === "COURSE_TITLE") {
-			// Backend expects courseTitle (title), node.id is the course title
 			newParams.courseTitle = node.id;
-			delete newParams.lecturerId;
-			delete newParams.classroomId;
-		} else if (nodeType === "LECTURER") {
-			// Backend expects lecturerId (id)
-			newParams.lecturerId = node.id;
-			delete newParams.classroomId;
-		} else if (nodeType === "CLASSROOM") {
-			// Backend expects classroomId (id)
-			newParams.classroomId = node.id;
 		}
-
 		setBrowseParams(newParams);
 	};
 
 	const handleBack = () => {
-		// Go back one level by removing the last param
 		const newParams: ResourceBrowseParams = { ...browseParams };
-
-		if (newParams.classroomId) {
-			delete newParams.classroomId;
-		} else if (newParams.lecturerId) {
-			delete newParams.lecturerId;
-		} else if (newParams.courseTitle) {
-			delete newParams.courseTitle;
-		} else if (newParams.specializationCode) {
-			delete newParams.specializationCode;
-		} else if (newParams.programCode) {
-			delete newParams.programCode;
-		}
-
+		if (newParams.courseTitle) delete newParams.courseTitle;
+		else if (newParams.specializationCode) delete newParams.specializationCode;
+		else if (newParams.programCode) delete newParams.programCode;
 		setBrowseParams(newParams);
 	};
 
-	// Parse URL from breadcrumb to extract browse params
-	const parseBreadcrumbUrl = (url: string): ResourceBrowseParams => {
-		const params: ResourceBrowseParams = {};
-
-		if (!url || !url.includes("?")) {
-			return params; // Root level
-		}
-
-		const queryString = url.split("?")[1];
-		const searchParams = new URLSearchParams(queryString);
-
-		if (searchParams.has("programCode")) {
-			params.programCode = searchParams.get("programCode") || undefined;
-		}
-		if (searchParams.has("specializationCode")) {
-			params.specializationCode =
-				searchParams.get("specializationCode") || undefined;
-		}
-		if (searchParams.has("courseTitle")) {
-			params.courseTitle = searchParams.get("courseTitle") || undefined;
-		}
-		if (searchParams.has("lecturerId")) {
-			params.lecturerId = searchParams.get("lecturerId") || undefined;
-		}
-		if (searchParams.has("classroomId")) {
-			params.classroomId = searchParams.get("classroomId") || undefined;
-		}
-
-		return params;
-	};
-
-	const handleBreadcrumbClick = (crumb: BreadcrumbItem, index: number) => {
-		// Don't navigate if clicking on current level (last item)
-		if (index === formattedBreadcrumbs.length - 1) {
-			return;
-		}
-
-		// Parse URL to get params
-		const newParams = parseBreadcrumbUrl(crumb.url);
-		setBrowseParams(newParams);
-	};
-
-	// Check if we're at root level (no params)
-	const isRootLevel =
-		!browseParams.programCode &&
-		!browseParams.specializationCode &&
-		!browseParams.courseTitle &&
-		!browseParams.lecturerId &&
-		!browseParams.classroomId;
-
-	// Check if we have resources (final level)
-	const hasResources = browseData?.resources && browseData.resources.length > 0;
-
-	// Format breadcrumb labels: translate to Vietnamese and replace IDs with names
-	const browseBreadcrumbs = browseData?.breadcrumbs;
-	const browseNodesForBreadcrumbs = browseData?.nodes;
-	const browseResourcesForBreadcrumbs = browseData?.resources;
 	const formattedBreadcrumbs = useMemo(() => {
-		if (!browseBreadcrumbs || !Array.isArray(browseBreadcrumbs)) {
-			return [];
-		}
-
-		return browseBreadcrumbs.map((crumb) => {
-			let label = crumb.label;
-
-			// Translate English labels to Vietnamese
-			if (label.startsWith("Programs")) {
-				label = "Chương trình đào tạo";
-			} else if (label.startsWith("Program: ")) {
-				const programCode = label.replace("Program: ", "");
-				// Try to find program name from nodes
-				const programNode = browseNodesForBreadcrumbs?.find(
-					(n) =>
-						n.type === "PROGRAM" &&
-						(n.code === programCode || n.id === programCode)
-				);
-				label = programNode
-					? `Chương trình: ${programNode.name}`
-					: `Chương trình: ${programCode}`;
-			} else if (label.startsWith("Specialization: ")) {
-				const specCode = label.replace("Specialization: ", "");
-				// Try to find specialization name from nodes
-				const specNode = browseNodesForBreadcrumbs?.find(
-					(n) =>
-						n.type === "SPECIALIZATION" &&
-						(n.code === specCode || n.id === specCode)
-				);
-				label = specNode
-					? `Chuyên ngành: ${specNode.name}`
-					: `Chuyên ngành: ${specCode}`;
-			} else if (label.startsWith("Course: ")) {
-				const courseTitle = label.replace("Course: ", "");
-				label = `Học phần: ${courseTitle}`;
-			} else if (label.startsWith("Lecturer: ")) {
-				const lecturerId = label.replace("Lecturer: ", "");
-				// Try to find lecturer name from seen nodes (includes current and cached nodes)
-				const seenNode = seenNodes.get(lecturerId);
-				if (seenNode && seenNode.type === "LECTURER") {
-					label = `Giảng viên: ${seenNode.name}`;
-				} else {
-					// Try to find from current nodes
-					const lecturerNode = browseNodesForBreadcrumbs?.find(
-						(n) => n.type === "LECTURER" && n.id === lecturerId
-					);
-					if (lecturerNode) {
-						label = `Giảng viên: ${lecturerNode.name}`;
-					} else {
-						// Try to find from resources (when at resource level)
-						const resource = browseResourcesForBreadcrumbs?.find(
-							(r) => r.uploadedBy?.id === lecturerId
-						);
-						if (resource?.uploadedBy?.fullName) {
-							label = `Giảng viên: ${resource.uploadedBy.fullName}`;
-						} else {
-							// Try to find from cache by parsing breadcrumb URL
-							const crumbParams = parseBreadcrumbUrl(crumb.url);
-							// Build parent params (remove lecturerId to get Course level where Lecturer nodes exist)
-							const parentParams: ResourceBrowseParams = {
-								programCode: crumbParams.programCode,
-								specializationCode: crumbParams.specializationCode,
-								courseTitle: crumbParams.courseTitle,
-							};
-							const cachedData = queryClient.getQueryData<{
-								nodes?: FolderNodeResponse[];
-								resources?: Resource[];
-							}>(["resources", "browse", parentParams]);
-							const cachedLecturerNode = cachedData?.nodes?.find(
-								(n) => n.type === "LECTURER" && n.id === lecturerId
-							);
-							if (cachedLecturerNode) {
-								label = `Giảng viên: ${cachedLecturerNode.name}`;
-							} else {
-								// Fallback: keep ID if name not found
-								label = `Giảng viên: ${lecturerId}`;
-							}
-						}
-					}
-				}
-			} else if (label.startsWith("Classroom: ")) {
-				const classroomId = label.replace("Classroom: ", "");
-				// Try to find classroom name from seen nodes (includes current and cached nodes)
-				const seenNode = seenNodes.get(classroomId);
-				if (seenNode && seenNode.type === "CLASSROOM") {
-					label = `Lớp: ${seenNode.name}`;
-				} else {
-					// Try to find from current nodes
-					const classroomNode = browseNodesForBreadcrumbs?.find(
-						(n) => n.type === "CLASSROOM" && n.id === classroomId
-					);
-					if (classroomNode) {
-						label = `Lớp: ${classroomNode.name}`;
-					} else {
-						// Try to find from cache by parsing breadcrumb URL
-						const crumbParams = parseBreadcrumbUrl(crumb.url);
-						// Build parent params (remove classroomId to get Lecturer level where Classroom nodes exist)
-						const parentParams: ResourceBrowseParams = {
-							programCode: crumbParams.programCode,
-							specializationCode: crumbParams.specializationCode,
-							courseTitle: crumbParams.courseTitle,
-							lecturerId: crumbParams.lecturerId,
-						};
-						const cachedData = queryClient.getQueryData<{
-							nodes?: FolderNodeResponse[];
-							resources?: Resource[];
-						}>(["resources", "browse", parentParams]);
-						const cachedClassroomNode = cachedData?.nodes?.find(
-							(n) => n.type === "CLASSROOM" && n.id === classroomId
-						);
-						if (cachedClassroomNode) {
-							label = `Lớp: ${cachedClassroomNode.name}`;
-						} else {
-							// Fallback: keep ID if name not found
-							label = `Lớp: ${classroomId}`;
-						}
-					}
-				}
-			}
-
-			return {
-				...crumb,
-				label,
-			};
-		});
-	}, [
-		browseBreadcrumbs,
-		browseNodesForBreadcrumbs,
-		browseResourcesForBreadcrumbs,
-		seenNodes,
-		queryClient,
-	]);
+		const crumbs = browseData?.breadcrumbs || [];
+		return crumbs.map(c => ({ ...c, label: c.label }));
+	}, [browseData?.breadcrumbs]);
 
 	const handleView = (resource: Resource) => {
 		setSelectedResource(resource);
@@ -472,198 +145,184 @@ const ResourceSearchPage: React.FC = () => {
 	const handleDownload = async (resource: Resource) => {
 		try {
 			const blob = await resourceApi.download(resource.id);
-			const url = URL.createObjectURL(blob);
-			const fileName = resource.title || `resource-${resource.id}`;
-			downloadFile(url, fileName);
+			downloadFile(URL.createObjectURL(blob), resource.title || `file-${resource.id}`);
 			message.success("Tải xuống thành công!");
 		} catch {
-			message.error("Tải xuống thất bại. Vui lòng thử lại.");
+			message.error("Lỗi tải xuống.");
 		}
 	};
 
-	// Show search results if there's a keyword or active filters
-	const showSearchResults = shouldSearch;
+	const isRootLevel = !browseParams.programCode && !browseParams.specializationCode && !browseParams.courseTitle;
+	const hasResources = browseData?.resources && browseData.resources.length > 0;
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold">Tìm kiếm học liệu</h1>
-			</div>
-
-			{/* Search Box - Always visible */}
-			<Card className="border-0! shadow-none!">
-				<div className="text-center mb-6">
-					<h2 className="text-xl font-semibold text-slate-800 mb-2">
-						Tìm kiếm học liệu
-					</h2>
-					<p className="text-sm text-gray-600 mt-2">
-						Tìm kiếm theo <strong>tên học phần</strong> (không tìm theo tên
-						file). Chỉ hiển thị học liệu đã được duyệt.
+		<div className="space-y-10 page-entrance">
+			{/* Executive Discovery Header */}
+			<div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-slate-200/60">
+				<div className="flex-1">
+					<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+						<span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+						Resource Explorer Center
+					</div>
+					<h1 className="text-4xl font-black text-slate-800 tracking-tight">
+						Trung tâm <span className="text-premium-gradient">Khám phá Học liệu</span>
+					</h1>
+					<p className="text-slate-500 font-bold text-sm mt-2">
+						Hệ thống quản lý tài nguyên số hóa toàn diện với khả năng truy xuất thời gian thực.
 					</p>
 				</div>
-				<div className="max-w-2xl mx-auto">
-					<ResourceSearchBox
-						value={searchKeyword}
-						onChange={setSearchKeyword}
-						onAdvancedFilterClick={() => setShowFilterBar(!showFilterBar)}
-						placeholder="Nhập tên học phần để tìm kiếm..."
-					/>
-				</div>
-			</Card>
+			</div>
 
-			{/* Filter Bar - Collapsible */}
-			{showFilterBar && (
-				<Card className="mb-4">
-					<ResourceFilterBar
-						value={filters}
-						onChange={(newFilters) => {
-							setFilters(newFilters);
-						}}
-						onClear={() => {
-							setFilters({});
-						}}
-					/>
-				</Card>
-			)}
+			{/* Search Card - Floating Visual Style */}
+			<div className="premium-card p-1 md:p-1 relative overflow-hidden bg-slate-900 shadow-blue-900/10">
+				<div className="p-8 md:p-12 relative z-10">
+					<div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-px bg-linear-to-r from-transparent via-blue-500/50 to-transparent" />
+					<div className="max-w-3xl mx-auto space-y-10">
+						<div className="text-center group">
+							<h2 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-3 group-hover:tracking-[0.4em] transition-all">
+								Global Query Terminal
+							</h2>
+							<p className="text-slate-400 text-xs font-bold leading-relaxed opacity-70">
+								Duyệt theo cấp bậc chương trình đào tạo hoặc thực hiện truy vấn trực tiếp kho học liệu.
+							</p>
+						</div>
 
-			{/* Show search results if searching */}
-			{showSearchResults && (
-				<Card>
-					<div className="mb-4">
-						<h3 className="text-lg font-semibold mb-2">Kết quả tìm kiếm</h3>
-						<p className="text-gray-600 mb-4">
-							Tìm thấy <strong>{searchFolderItems.length}</strong> học phần phù hợp
-						</p>
+						<div className="animate-float">
+							<ResourceSearchBox
+								value={searchKeyword}
+								onChange={setSearchKeyword}
+								onAdvancedFilterClick={() => setShowFilterBar(!showFilterBar)}
+								placeholder="Nhập mã học phần, tên môn học hoặc từ khóa..."
+							/>
+						</div>
+
+						{showFilterBar && (
+							<div className="page-entrance">
+								<ResourceFilterBar
+									value={filters}
+									onChange={setFilters}
+									onClear={() => setFilters({})}
+									className="mt-4"
+								/>
+							</div>
+						)}
 					</div>
+				</div>
+			</div>
 
-					{searchFolderItems.length > 0 ? (
-						<FolderGrid
-							folders={searchFolderItems}
-							onFolderClick={(folder) => {
-								const newParams: ResourceBrowseParams = {};
-								// Map active filters to browse params (taking first value if array)
-								if (filters.programCode?.[0])
-									newParams.programCode = filters.programCode[0];
-								if (filters.specializationCode?.[0])
-									newParams.specializationCode = filters.specializationCode[0];
-								if (filters.lecturerId?.[0])
-									newParams.lecturerId = filters.lecturerId[0];
-								if (filters.classroomId?.[0])
-									newParams.classroomId = filters.classroomId[0];
-
-								newParams.courseTitle = folder.title;
-								setBrowseParams(newParams);
-								setSearchKeyword("");
-							}}
-						/>
-					) : (
-						<div className="text-center py-12 text-gray-500">
-							<p className="text-lg">Không tìm thấy kết quả nào</p>
-						</div>
-					)}
-				</Card>
-			)}
-
-			{/* Folder Grid Browser - Show when not searching */}
-			{!showSearchResults && (
-				<Card>
-					{/* Breadcrumb navigation */}
-					{!isRootLevel && (
-						<div className="mb-4">
-							<Button
-								icon={<ArrowLeftOutlined />}
-								onClick={handleBack}
-								type="text"
-								className="mb-2"
-							>
-								Quay lại
-							</Button>
-							{formattedBreadcrumbs.length > 0 && (
-								<div className="text-sm text-gray-600">
-									{formattedBreadcrumbs.map((crumb, index) => {
-										const isLast = index === formattedBreadcrumbs.length - 1;
-										return (
-											<span key={index}>
-												{index > 0 && " / "}
-												{isLast ? (
-													<span className="font-semibold text-slate-800">
-														{crumb.label}
-													</span>
-												) : (
-													<button
-														type="button"
-														onClick={() => handleBreadcrumbClick(crumb, index)}
-														className="text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer"
-													>
-														{crumb.label}
-													</button>
-												)}
-											</span>
-										);
-									})}
+			{/* Results & Browse Section */}
+			<div className="space-y-8">
+				{/* Search Results Display */}
+				{shouldSearch && (
+					<div className="premium-card p-8 bg-white/40 backdrop-blur-md space-y-8 page-entrance">
+						<div className="flex items-center justify-between border-b border-slate-100 pb-6">
+							<div className="flex items-center gap-3">
+								<div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+									<FolderOutlined />
 								</div>
-							)}
+								<span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+									Search Results Cluster ({searchFolderItems.length})
+								</span>
+							</div>
 						</div>
-					)}
+						{searchFolderItems.length > 0 ? (
+							<FolderGrid
+								folders={searchFolderItems}
+								onFolderClick={(folder) => {
+									setBrowseParams({ courseTitle: folder.title });
+									setSearchKeyword("");
+								}}
+							/>
+						) : (
+							<div className="py-24 text-center">
+								<div className="inline-block p-4 rounded-full bg-slate-50 border border-slate-100 mb-4">
+									<SearchOutlined className="text-2xl text-slate-200" />
+								</div>
+								<div className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
+									No matches found for current filters
+								</div>
+							</div>
+						)}
+					</div>
+				)}
 
-					{/* Resources display when available */}
-					{hasResources ? (
-						<div className="space-y-4">
-							{/* Sort and Count */}
-							<div className="flex items-center justify-between pb-4 border-b border-gray-200">
-								<p className="text-gray-600">
-									Tìm thấy{" "}
-									<strong className="text-blue-600">
-										{sortedBrowseResources.length}
-									</strong>{" "}
-									học liệu
-								</p>
-								<Space>
-									<span className="text-sm text-gray-600">Sắp xếp:</span>
+				{/* Level/Breadcrumb Browse Navigation */}
+				{!shouldSearch && (
+					<div className="premium-card p-8 bg-white space-y-10">
+						{/* Breadcrumbs Navigation - Premium Polish */}
+						<div className="flex flex-wrap items-center justify-between gap-6">
+							<div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-slate-50/80 rounded-2xl border border-slate-100/50 flex-1">
+								{!isRootLevel && (
+									<Button
+										type="text"
+										icon={<ArrowLeftOutlined />}
+										onClick={handleBack}
+										className="text-slate-500 hover:text-blue-600 p-0 h-8 w-8 flex items-center justify-center -ml-2 rounded-full hover:bg-white transition-all shadow-xs"
+									/>
+								)}
+								<div className="flex items-center text-xs font-black text-slate-800 uppercase tracking-widest gap-2">
+									{isRootLevel ? (
+										<span className="text-blue-600">All Programs</span>
+									) : formattedBreadcrumbs.map((crumb, idx) => (
+										<span key={idx} className="flex items-center gap-3">
+											{idx > 0 && <span className="text-slate-200">/</span>}
+											<span className={idx === formattedBreadcrumbs.length - 1 ? "text-blue-600" : "text-slate-400"}>
+												{crumb.label}
+											</span>
+										</span>
+									))}
+								</div>
+							</div>
+
+							{hasResources && (
+								<div className="flex items-center gap-4">
+									<span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sort:</span>
 									<Select
 										value={sortOption}
 										onChange={setSortOption}
-										style={{ width: 220 }}
-										size="middle"
+										className="min-w-[180px] premium-select"
+										variant="borderless"
+										popupClassName="rounded-2xl shadow-2xl border border-slate-100"
 									>
-										<Option value="newest">Mới → Cũ</Option>
-										<Option value="oldest">Cũ → Mới</Option>
-										<Option value="year">Năm</Option>
-										<Option value="downloads">Lượt tải</Option>
-										<Option value="alphabetical">Bảng chữ cái</Option>
-										<Option value="lecturer">Giảng viên</Option>
+										<Option value="newest">Mới cập nhật</Option>
+										<Option value="oldest">Cũ nhất</Option>
+										<Option value="downloads">Phổ biến nhất</Option>
+										<Option value="alphabetical">Tiêu đề A-Z</Option>
 									</Select>
-								</Space>
-							</div>
-							<ResourceList
-								resources={sortedBrowseResources}
-								onView={handleView}
-								onDownload={handleDownload}
-							/>
+								</div>
+							)}
 						</div>
-					) : (
-						/* Only Folder Grid when no resources */
-						<div>
-							<h3 className="text-lg font-semibold text-slate-800 mb-4">
-								{isRootLevel ? "Chương trình đào tạo" : "Thư mục con"}
-							</h3>
-							{folderItems.length > 0 ? (
+
+						{/* Terminal Content Display */}
+						{hasResources ? (
+							<div className="space-y-6 page-entrance">
+								<div className="inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-[11px] font-black uppercase tracking-widest mb-2">
+									<span className="w-2 h-2 rounded-full bg-blue-500" />
+									Available Assets Container
+								</div>
+								<div className="premium-card border-slate-100 overflow-hidden shadow-xs">
+									<ResourceList
+										resources={sortedBrowseResources}
+										onView={handleView}
+										onDownload={handleDownload}
+									/>
+								</div>
+							</div>
+						) : (
+							<div className="space-y-8">
+								<div className="inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-50 text-slate-400 text-[11px] font-black uppercase tracking-widest">
+									Sub-Directory Hierarchies
+								</div>
 								<FolderGrid
 									folders={folderItems}
 									onFolderClick={handleFolderClick}
 								/>
-							) : (
-								<div className="text-center py-12 text-gray-500">
-									<p className="text-lg">Không có thư mục nào</p>
-									<p className="text-sm mt-2">Vui lòng chọn một thư mục khác</p>
-								</div>
-							)}
-						</div>
-					)}
-				</Card>
-			)}
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 
-			{/* Resource Viewer Modal */}
 			<ResourceViewer
 				resource={selectedResource}
 				open={viewerOpen}

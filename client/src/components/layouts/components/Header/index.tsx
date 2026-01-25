@@ -41,44 +41,47 @@ export const Header: React.FC<HeaderProps> = ({ collapsed, onToggleCollapse }) =
 	];
 
 	return (
-		<AntHeader className="bg-white! px-6! flex! items-center! justify-between! border-b! border-slate-200/80! shrink-0! shadow-md! backdrop-blur-md! bg-white/95! relative z-10">
+		<AntHeader className="!bg-[#f8fafc]/80 backdrop-blur-md px-6 flex items-center justify-between border-b border-slate-200/60 shrink-0 sticky top-0 z-40 h-20 shadow-sm">
 			<div className="flex items-center gap-4">
 				<Button
 					type="text"
 					icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
 					onClick={onToggleCollapse}
-					className="text-lg! text-slate-700! hover:bg-[#D9F0FF]! hover:text-[#1e40af]! rounded-lg! transition-all! duration-200! w-10! h-10! flex! items-center! justify-center!"
+					className="text-lg text-slate-600 hover:bg-slate-100 rounded-lg transition-all w-10 h-10 flex items-center justify-center border border-transparent hover:border-slate-200"
 				/>
 				<div className="hidden md:block h-6 w-px bg-slate-200" />
-				<div className="hidden md:block">
-					<Text className="text-sm text-slate-600">
-						{isAdmin && "Quản trị hệ thống"}
-						{isSubAdmin && "Quản trị khoa"}
-						{isLecturer && "Giảng viên"}
+				<div className="hidden lg:block ml-2">
+					<Text className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block leading-none mb-1">
+						Vị trí hiện tại
+					</Text>
+					<Text className="text-[13px] font-semibold text-slate-700 block leading-none">
+						{isAdmin && "Bàn làm việc • Quản trị viên"}
+						{isSubAdmin && "Bàn làm việc • Quản trị khoa"}
+						{isLecturer && "Bàn làm việc • Giảng viên"}
+						{!isAdmin && !isSubAdmin && !isLecturer && "Trung tâm học liệu"}
 					</Text>
 				</div>
 			</div>
 
 			<Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-				<div className="flex items-center gap-3 cursor-pointer hover:bg-slate-50/80 px-4 py-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-slate-200/60 hover:shadow-sm bg-white/50 backdrop-blur-sm">
+				<div className="flex items-center gap-3 cursor-pointer group hover:bg-white/80 px-3 py-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
 					<div className="text-right hidden sm:block">
-						<div className="font-semibold text-sm text-slate-900 leading-tight">
+						<div className="font-bold text-[13px] text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">
 							{user?.fullName}
 						</div>
-						<div className="text-xs text-slate-500 mt-0.5">
-							{user?.role === "ADMIN" && "Quản trị viên"}
-							{user?.role === "SUB_ADMIN" && "Quản trị khoa"}
-							{user?.role === "LECTURER" && "Giảng viên"}
+						<div className="text-[11px] text-slate-500 mt-0.5 font-medium uppercase tracking-tight">
+							{user?.role === "ADMIN" && "System Admin"}
+							{user?.role === "SUB_ADMIN" && "Department Admin"}
+							{user?.role === "LECTURER" && "Scientific Faculty"}
+							{user?.role === "STUDENT" && "Student"}
 						</div>
 					</div>
 					<Avatar
-						size="large"
+						size={40}
 						src={getAvatarUrl(user?.avatarUrl)}
 						icon={<UserOutlined />}
-						className="border-2! border-white! shadow-lg! ring-2 ring-[#D9F0FF]/50! transition-all! duration-200! hover:ring-[#A3D5FF]!"
-						style={{
-							backgroundColor: "#83C9F4",
-						}}
+						className="border border-slate-200 shadow-sm shadow-blue-100 ring-4 ring-transparent group-hover:ring-blue-50 transition-all"
+						style={{ backgroundColor: "#f1f5f9", color: "#64748b" }}
 					/>
 				</div>
 			</Dropdown>

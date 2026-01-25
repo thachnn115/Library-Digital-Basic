@@ -22,25 +22,31 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
 	folders,
 	onFolderClick,
 }) => {
-	// Use same icon for all folders
 	const getDefaultIcon = () => <FolderOutlined />;
 
 	if (folders.length === 0) {
 		return (
-			<Empty
-				description="Chưa có thư mục nào"
-				className="py-12"
-			/>
+			<div className="premium-card bg-slate-50/50 border-dashed border-slate-200 py-20 flex flex-col items-center justify-center">
+				<Empty
+					description={
+						<span className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+							Hệ thống chưa ghi nhận thư mục nào
+						</span>
+					}
+					image={Empty.PRESENTED_IMAGE_SIMPLE}
+				/>
+			</div>
 		);
 	}
 
-	// Limit to 6 folders for 2x3 grid
-	const displayFolders = folders.slice(0, 6);
-
 	return (
-		<Row gutter={[16, 16]}>
-			{displayFolders.map((folder) => (
-				<Col key={folder.id} xs={12} sm={8} md={8} lg={8}>
+		<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+			{folders.map((folder, index) => (
+				<div
+					key={folder.id}
+					className="page-entrance"
+					style={{ animationDelay: `${index * 50}ms` }}
+				>
 					<FolderCard
 						title={folder.title}
 						icon={folder.icon || getDefaultIcon()}
@@ -51,9 +57,9 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
 							onFolderClick?.(folder);
 						}}
 					/>
-				</Col>
+				</div>
 			))}
-		</Row>
+		</div>
 	);
 };
 

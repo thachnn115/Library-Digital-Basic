@@ -1,4 +1,3 @@
-import { Card } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
 import clsx from 'clsx';
 
@@ -19,60 +18,31 @@ export const FolderCard: React.FC<FolderCardProps> = ({
 	icon,
 	onClick,
 	className,
-	description,
 	count,
 }) => {
 	return (
-		<Card
-			hoverable
+		<div
 			onClick={onClick}
 			className={clsx(
-				'aspect-square! flex! flex-col! cursor-pointer! transition-all! duration-300!',
-				'hover:shadow-xl! hover:border-blue-500! hover:-translate-y-1!',
-				'border-2! border-gray-200! rounded-xl! overflow-hidden!',
+				"folder-item-premium group flex flex-col items-center gap-4 w-[160px] text-center",
 				className
 			)}
-			bodyStyle={{
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'center',
-				justifyContent: 'center',
-				padding: '32px 24px',
-				height: '100%',
-				background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-			}}
 		>
-			{/* Icon Container with gradient background */}
-			<div className="relative mb-4">
-				<div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl opacity-10 blur-xl"></div>
-				<div className="relative text-5xl text-blue-600 flex items-center justify-center w-20 h-20 bg-white rounded-xl shadow-md">
-					{icon || <FolderOutlined />}
-				</div>
+			<div className="w-16 h-16 rounded-2xl bg-slate-50 text-blue-600 flex items-center justify-center text-3xl group-hover:bg-premium-gradient group-hover:text-white transition-all duration-500 shadow-sm border border-slate-100 group-hover:border-transparent group-hover:scale-110 group-hover:rotate-3">
+				{icon || <FolderOutlined />}
 			</div>
 
-			{/* Title */}
-			<div className="text-center mb-2">
-				<h3 className="font-bold text-slate-800 text-base line-clamp-2 leading-tight">
+			<div className="space-y-1">
+				<h3 className="text-sm font-black text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">
 					{title}
 				</h3>
+				{count !== undefined && (
+					<div className="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:bg-blue-100 group-hover:text-blue-600 transition-all">
+						{count} Res
+					</div>
+				)}
 			</div>
-
-			{/* Description */}
-			{description && (
-				<p className="text-xs text-gray-500 text-center line-clamp-2 mb-2">
-					{description}
-				</p>
-			)}
-
-			{/* Count badge */}
-			{count !== undefined && (
-				<div className="mt-auto pt-2">
-					<span className="inline-flex items-center justify-center px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full">
-						{count} mục
-					</span>
-				</div>
-			)}
-		</Card>
+		</div>
 	);
 };
 
