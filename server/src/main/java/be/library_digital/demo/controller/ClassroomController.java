@@ -55,9 +55,9 @@ public class ClassroomController {
         return ResponseEntity.ok(api);
     }
 
-    @Operation(summary = "Get classroom by id", description = "ADMIN only")
+    @Operation(summary = "Get classroom by id", description = "ADMIN/SUB_ADMIN/LECTURER")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'SUB_ADMIN', 'LECTURER')")
     public ResponseEntity<?> getById(@PathVariable String id) {
         ClassroomResponse resp = classroomService.getById(id);
         ApiResponse<ClassroomResponse> api = ApiResponse.<ClassroomResponse>builder()
@@ -69,14 +69,13 @@ public class ClassroomController {
         return ResponseEntity.ok(api);
     }
 
-    @Operation(summary = "List classrooms", description = "ADMIN only; optional filter by code, specializationCode, cohortCode")
+    @Operation(summary = "List classrooms", description = "ADMIN/SUB_ADMIN/LECTURER; optional filter by code, specializationCode, cohortCode")
     @GetMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'SUB_ADMIN', 'LECTURER')")
     public ResponseEntity<?> list(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String specializationCode,
-            @RequestParam(required = false) String cohortCode
-    ) {
+            @RequestParam(required = false) String cohortCode) {
         List<ClassroomResponse> list = classroomService.getAll(code, specializationCode, cohortCode);
         ApiResponse<List<ClassroomResponse>> api = ApiResponse.<List<ClassroomResponse>>builder()
                 .status(HttpStatus.OK.value())

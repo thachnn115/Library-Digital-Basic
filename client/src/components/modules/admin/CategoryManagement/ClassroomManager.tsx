@@ -120,15 +120,15 @@ export const ClassroomManager: React.FC = () => {
 	const availableCohorts =
 		selectedProgramCodes.length > 0
 			? cohorts.filter((cohort) =>
-					specializationHasProgram(selectedSpecialization, cohort.program?.code)
-			  )
+				specializationHasProgram(selectedSpecialization, cohort.program?.code)
+			)
 			: cohorts;
 
 	// Filter specializations by cohort's program
 	const availableSpecializations = selectedCohort?.program?.code
 		? specializations.filter((spec) =>
-				specializationHasProgram(spec, selectedCohort.program?.code)
-		  )
+			specializationHasProgram(spec, selectedCohort.program?.code)
+		)
 		: specializations;
 
 	// Reset cohort when specialization changes (if programs don't match)
@@ -173,6 +173,7 @@ export const ClassroomManager: React.FC = () => {
 		mutationFn: (data: CreateClassroomRequest) => classroomApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["classrooms"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo lớp thành công!");
 		},
@@ -269,19 +270,19 @@ export const ClassroomManager: React.FC = () => {
 			title: "Chương trình Đào tạo",
 			key: "program",
 			render: (_, record) => {
-					const programNames =
-						record.specialization?.programs
-							?.map((program) => program.name)
-							.filter(Boolean) || [];
-					if (programNames.length > 0) {
-						return programNames.join(", ");
-					}
-					return (
-						record.specialization?.program?.name ||
-						record.specialization?.trainingProgram?.name ||
-						"-"
-					);
-				},
+				const programNames =
+					record.specialization?.programs
+						?.map((program) => program.name)
+						.filter(Boolean) || [];
+				if (programNames.length > 0) {
+					return programNames.join(", ");
+				}
+				return (
+					record.specialization?.program?.name ||
+					record.specialization?.trainingProgram?.name ||
+					"-"
+				);
+			},
 		},
 		{
 			title: "Chuyên ngành",
@@ -449,11 +450,10 @@ export const ClassroomManager: React.FC = () => {
 									options={availableSpecializations.map((spec) => {
 										const programCodes = getSpecializationProgramCodes(spec);
 										return {
-											label: `${spec.code} - ${spec.name}${
-												programCodes.length
+											label: `${spec.code} - ${spec.name}${programCodes.length
 													? ` (${programCodes.join(", ")})`
 													: ""
-											}`,
+												}`,
 											value: spec.code,
 										};
 									})}
@@ -519,9 +519,8 @@ export const ClassroomManager: React.FC = () => {
 											.includes(input.toLowerCase())
 									}
 									options={availableCohorts.map((cohort) => ({
-										label: `${cohort.code} - ${cohort.startYear}${
-											cohort.endYear ? `-${cohort.endYear}` : ""
-										}${cohort.program ? ` (${cohort.program.code})` : ""}`,
+										label: `${cohort.code} - ${cohort.startYear}${cohort.endYear ? `-${cohort.endYear}` : ""
+											}${cohort.program ? ` (${cohort.program.code})` : ""}`,
 										value: cohort.code,
 									}))}
 									notFoundContent={
@@ -619,22 +618,22 @@ export const ClassroomManager: React.FC = () => {
 						<Descriptions.Item label="Chương trình Đào tạo">
 							{selectedClassroom.specialization?.programs &&
 								selectedClassroom.specialization?.programs.length > 0
-									? selectedClassroom.specialization.programs
-										.map((program) => program.name)
-										.filter(Boolean)
-										.join(", ")
-									: selectedClassroom.specialization?.program?.name ||
-										selectedClassroom.specialization?.trainingProgram?.name ||
-										"-"} (
-								{selectedClassroom.specialization?.programs &&
+								? selectedClassroom.specialization.programs
+									.map((program) => program.name)
+									.filter(Boolean)
+									.join(", ")
+								: selectedClassroom.specialization?.program?.name ||
+								selectedClassroom.specialization?.trainingProgram?.name ||
+								"-"} (
+							{selectedClassroom.specialization?.programs &&
 								selectedClassroom.specialization?.programs.length > 0
-									? selectedClassroom.specialization.programs
-										.map((program) => program.code)
-										.filter(Boolean)
-										.join(", ")
-									: selectedClassroom.specialization?.program?.code ||
-										selectedClassroom.specialization?.trainingProgram?.code ||
-										"-"}
+								? selectedClassroom.specialization.programs
+									.map((program) => program.code)
+									.filter(Boolean)
+									.join(", ")
+								: selectedClassroom.specialization?.program?.code ||
+								selectedClassroom.specialization?.trainingProgram?.code ||
+								"-"}
 							)
 						</Descriptions.Item>
 						<Descriptions.Item label="Chuyên ngành">
@@ -647,7 +646,7 @@ export const ClassroomManager: React.FC = () => {
 							{selectedClassroom.description || "-"}
 						</Descriptions.Item>
 					</Descriptions>
-					)}
+				)}
 			</Drawer>
 		</div>
 	);

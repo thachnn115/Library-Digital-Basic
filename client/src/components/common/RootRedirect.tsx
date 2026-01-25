@@ -4,7 +4,6 @@ import { Spin } from 'antd';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import MainLayout from '@/components/layouts/MainLayout';
-import ProtectedRoute from '@/components/layouts/ProtectedRoute';
 
 // Lazy load HomePage
 const HomePage = lazy(() => import('@/pages/client/home/HomePage'));
@@ -14,7 +13,7 @@ const HomePage = lazy(() => import('@/pages/client/home/HomePage'));
  * Redirects to login if not authenticated, otherwise renders homepage
  */
 const RootRedirect: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin, isSubAdmin, isLecturer, isStudent } = useAuth();
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -30,9 +29,13 @@ const RootRedirect: React.FC = () => {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
-  // Render homepage with layout if authenticated
-  return (
-    <ProtectedRoute requiredRoles={['ADMIN', 'SUB_ADMIN', 'LECTURER']}>
+  // Redirect based on role
+  if (isStudent) {
+    return <Navigate to={ROUTES.STUDENT_RESOURCES} replace />;
+  }
+
+  if (isAdmin || isSubAdmin || isLecturer) {
+    return (
       <MainLayout>
         <Suspense
           fallback={
@@ -44,8 +47,11 @@ const RootRedirect: React.FC = () => {
           <HomePage />
         </Suspense>
       </MainLayout>
-    </ProtectedRoute>
-  );
+    );
+  }
+
+  // Fallback for unknown roles
+  return <Navigate to={ROUTES.UNAUTHORIZED} replace />;
 };
 
 export default RootRedirect;

@@ -71,11 +71,10 @@ public class TrainingProgramController {
 
     @Operation(summary = "List training programs", description = "ADMIN only")
     @GetMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'SUB_ADMIN', 'LECTURER')")
     public ResponseEntity<?> list(
             @RequestParam(required = false) String code,
-            @RequestParam(required = false) String name
-    ) {
+            @RequestParam(required = false) String name) {
         List<TrainingProgramResponse> list = trainingProgramService.getAll(code, name);
         ApiResponse<List<TrainingProgramResponse>> api = ApiResponse.<List<TrainingProgramResponse>>builder()
                 .status(HttpStatus.OK.value())

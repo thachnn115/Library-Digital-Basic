@@ -23,9 +23,12 @@ public class ResourceResponse implements Serializable {
     private PublicUser uploadedBy;
     private ApprovalStatus approvalStatus;
     private ResourceStats stats;
+    private String classroomId;
+    private String classroomName;
 
     public static ResourceResponse fromResource(Resource resource) {
-        if (resource == null) return null;
+        if (resource == null)
+            return null;
 
         return ResourceResponse.builder()
                 .id(resource.getId())
@@ -38,6 +41,8 @@ public class ResourceResponse implements Serializable {
                 .createdAt(resource.getCreatedAt())
                 .uploadedBy(PublicUser.fromUser(resource.getUploadedBy()))
                 .approvalStatus(resource.getApprovalStatus())
+                .classroomId(resource.getClassroom() != null ? resource.getClassroom().getId() : null)
+                .classroomName(resource.getClassroom() != null ? resource.getClassroom().getName() : null)
                 .build();
     }
 }

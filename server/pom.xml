@@ -143,6 +143,11 @@
 			<artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
 			<version>11.5.0</version>
 		</dependency>
+		<dependency>
+			<groupId>org.docx4j</groupId>
+			<artifactId>docx4j-export-fo</artifactId>
+			<version>11.5.0</version>
+		</dependency>
 
 		<!-- PDF Creation (for PPT to PDF) -->
 		<dependency>

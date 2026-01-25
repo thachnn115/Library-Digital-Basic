@@ -26,7 +26,7 @@ import lombok.Setter;
 @Table(name = "resources")
 @Entity
 public class Resource {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
@@ -39,6 +39,10 @@ public class Resource {
     @ManyToOne
     @JoinColumn(name = "course_id")
     private Course course;
+
+    @ManyToOne
+    @JoinColumn(name = "classroom_id")
+    private Classroom classroom;
 
     @ManyToOne
     @JoinColumn(name = "type_id")
@@ -57,7 +61,7 @@ public class Resource {
     @ManyToOne
     @JoinColumn(name = "uploaded_by")
     private User uploadedBy;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status")
     private ApprovalStatus approvalStatus;

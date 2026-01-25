@@ -34,8 +34,8 @@ const specializationSchema = z.object({
 	code: z.string().min(1, "Mã chuyên ngành không được để trống"),
 	description: z.string().optional(),
 	programCodes: z
-			.array(z.string().min(1, "Phải chọn Chương Trình Đào Tạo"))
-			.min(1, "Phải chọn Chương Trình Đào Tạo"),
+		.array(z.string().min(1, "Phải chọn Chương Trình Đào Tạo"))
+		.min(1, "Phải chọn Chương Trình Đào Tạo"),
 });
 
 /**
@@ -81,6 +81,7 @@ export const SpecializationManager: React.FC = () => {
 			specializationApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["specializations"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo chuyên ngành thành công!");
 		},
@@ -190,13 +191,13 @@ export const SpecializationManager: React.FC = () => {
 			title: "Chương trình đào tạo",
 			key: "trainingProgram",
 			render: (_, record) => {
-			const programNames =
-				record.programs?.map((program) => program.name).filter(Boolean) || [];
-			if (programNames.length > 0) {
-				return programNames.join(", ");
-			}
-			return record.program?.name || record.trainingProgram?.name || "-";
-		},
+				const programNames =
+					record.programs?.map((program) => program.name).filter(Boolean) || [];
+				if (programNames.length > 0) {
+					return programNames.join(", ");
+				}
+				return record.program?.name || record.trainingProgram?.name || "-";
+			},
 		},
 		{
 			title: "Mô tả",
@@ -301,79 +302,79 @@ export const SpecializationManager: React.FC = () => {
 				width={600}
 			>
 				<Form layout="vertical">
-				<Form.Item
-					label="Mã chuyên ngành"
-					validateStatus={errors.code ? "error" : ""}
-					help={errors.code?.message}
-				>
-					<Controller
-						name="code"
-						control={control}
-						render={({ field }) => (
-							<Input {...field} placeholder="Nhập mã chuyên ngành" />
-						)}
-					/>
-				</Form.Item>
+					<Form.Item
+						label="Mã chuyên ngành"
+						validateStatus={errors.code ? "error" : ""}
+						help={errors.code?.message}
+					>
+						<Controller
+							name="code"
+							control={control}
+							render={({ field }) => (
+								<Input {...field} placeholder="Nhập mã chuyên ngành" />
+							)}
+						/>
+					</Form.Item>
 
-				<Form.Item
-					label="Tên chuyên ngành"
-					validateStatus={errors.name ? "error" : ""}
-					help={errors.name?.message}
-				>
-					<Controller
-						name="name"
-						control={control}
-						render={({ field }) => (
-							<Input {...field} placeholder="Nhập tên chuyên nhành" />
-						)}
-					/>
-				</Form.Item>
+					<Form.Item
+						label="Tên chuyên ngành"
+						validateStatus={errors.name ? "error" : ""}
+						help={errors.name?.message}
+					>
+						<Controller
+							name="name"
+							control={control}
+							render={({ field }) => (
+								<Input {...field} placeholder="Nhập tên chuyên nhành" />
+							)}
+						/>
+					</Form.Item>
 
-				<Form.Item
-					label="Chương Trình Đào Tạo"
-					validateStatus={errors.programCodes ? "error" : ""}
-					help={errors.programCodes?.message}
-					required
-				>
-					<Controller
-						name="programCodes"
-						control={control}
-						render={({ field }) => (
-							<Select
-								{...field}
-								placeholder="Chọn Chương Trình Đào Tạo"
-								mode="multiple"
-								showSearch
-								filterOption={(input, option) =>
-									(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-								}
-								options={programs.map((program) => ({
-									label: `${program.code} - ${program.name}`,
-									value: program.code,
-								}))}
-							/>
-						)}
-					/>
-				</Form.Item>
+					<Form.Item
+						label="Chương Trình Đào Tạo"
+						validateStatus={errors.programCodes ? "error" : ""}
+						help={errors.programCodes?.message}
+						required
+					>
+						<Controller
+							name="programCodes"
+							control={control}
+							render={({ field }) => (
+								<Select
+									{...field}
+									placeholder="Chọn Chương Trình Đào Tạo"
+									mode="multiple"
+									showSearch
+									filterOption={(input, option) =>
+										(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+									}
+									options={programs.map((program) => ({
+										label: `${program.code} - ${program.name}`,
+										value: program.code,
+									}))}
+								/>
+							)}
+						/>
+					</Form.Item>
 
-				<Form.Item
-					label="Mô tả"
-					validateStatus={errors.description ? "error" : ""}
-					help={errors.description?.message}
-				>
-					<Controller
-						name="description"
-						control={control}
-						render={({ field }) => (
-							<Input.TextArea
-								{...field}
-								rows={3}
-								placeholder="Nhập mô tả"
-							/>
-						)}
-					/>
-				</Form.Item>
-			</Form>
+					<Form.Item
+						label="Mô tả"
+						validateStatus={errors.description ? "error" : ""}
+						help={errors.description?.message}
+					>
+						<Controller
+							name="description"
+							control={control}
+							render={({ field }) => (
+								<Input.TextArea
+									{...field}
+									rows={3}
+									placeholder="Nhập mô tả"
+								/>
+							)}
+						/>
+					</Form.Item>
+				</Form>
 			</Modal>
 
 			<Modal
@@ -415,9 +416,9 @@ export const SpecializationManager: React.FC = () => {
 						<Descriptions.Item label="Chương Trình Đào Tạo">
 							{selectedSpecialization.programs && selectedSpecialization.programs.length > 0
 								? selectedSpecialization.programs
-										.map((program) => program.name)
-										.filter(Boolean)
-										.join(", ")
+									.map((program) => program.name)
+									.filter(Boolean)
+									.join(", ")
 								: selectedSpecialization.program?.name || selectedSpecialization.trainingProgram?.name || "-"}
 						</Descriptions.Item>
 						<Descriptions.Item label="Mô tả">

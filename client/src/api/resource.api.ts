@@ -75,6 +75,43 @@ export const resourceApi = {
 	},
 
 	/**
+	 * Search folders with filters (LECTURER only)
+	 */
+	searchFolders: async (
+		params: ResourceSearchParams
+	): Promise<ResourceFolderResponse> => {
+		const queryParams: Record<string, string | string[]> = {};
+
+		if (params.courseKeyword) {
+			queryParams.courseKeyword = params.courseKeyword;
+		}
+		if (params.programCode && params.programCode.length > 0) {
+			queryParams.programCode = params.programCode;
+		}
+		if (params.specializationCode && params.specializationCode.length > 0) {
+			queryParams.specializationCode = params.specializationCode;
+		}
+		if (params.cohortCode && params.cohortCode.length > 0) {
+			queryParams.cohortCode = params.cohortCode;
+		}
+		if (params.classroomId && params.classroomId.length > 0) {
+			queryParams.classroomId = params.classroomId;
+		}
+		if (params.lecturerId && params.lecturerId.length > 0) {
+			queryParams.lecturerId = params.lecturerId;
+		}
+		if (params.typeId && params.typeId.length > 0) {
+			queryParams.typeId = params.typeId;
+		}
+
+		const response = await apiClient.get<ApiResponse<ResourceFolderResponse>>(
+			"/resource/search-folders",
+			{ params: queryParams }
+		);
+		return response.data.data;
+	},
+
+	/**
 	 * Browse resources by folder hierarchy (LECTURER only)
 	 */
 	browse: async (params: ResourceBrowseParams): Promise<ResourceFolderResponse> => {
@@ -104,6 +141,32 @@ export const resourceApi = {
 	},
 
 	/**
+	 * Browse resources for Student (My Classroom)
+	 */
+	browseFoldersForStudent: async (courseTitle: string | null): Promise<ResourceFolderResponse> => {
+		const params: Record<string, string> = {};
+		if (courseTitle) {
+			params.courseTitle = courseTitle;
+		}
+		const response = await apiClient.get<ApiResponse<ResourceFolderResponse>>(
+			'/resource/student/browse',
+			{ params }
+		);
+		return response.data.data;
+	},
+
+	/**
+	 * Search folders for Student
+	 */
+	searchFoldersForStudent: async (keyword: string): Promise<ResourceFolderResponse> => {
+		const response = await apiClient.get<ApiResponse<ResourceFolderResponse>>(
+			'/resource/student/search',
+			{ params: { courseKeyword: keyword } }
+		);
+		return response.data.data;
+	},
+
+	/**
 	 * Get resource by ID
 	 */
 	getById: async (id: string | number): Promise<Resource> => {
@@ -121,13 +184,13 @@ export const resourceApi = {
 		const response = await apiClient.get<Blob>(API_ENDPOINTS.RESOURCE.VIEW(id), {
 			responseType: 'blob',
 		});
-		
+
 		// Return Blob directly - don't convert to avoid ArrayBuffer detachment issues
 		// The blob URL will be created in ResourceViewer, which is safer for react-pdf
 		if (response.data instanceof Blob) {
 			return response.data;
 		}
-		
+
 		// Fallback: if not a Blob, convert it
 		const contentType = response.headers['content-type'] || 'application/octet-stream';
 		return new Blob([response.data], { type: contentType });

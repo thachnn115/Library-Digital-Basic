@@ -59,9 +59,9 @@ public class ResourceController {
                 return new ResponseEntity<>(api, HttpStatus.CREATED);
         }
 
-        @Operation(summary = "View resource file", description = "ADMIN any; SUB_ADMIN/LECTURER only within their department")
+        @Operation(summary = "View resource file", description = "ADMIN any; SUB_ADMIN/LECTURER only within their department; STUDENT only within their classroom")
         @GetMapping("/{id}/view")
-        @PreAuthorize("hasAnyAuthority('ADMIN','SUB_ADMIN','LECTURER')")
+        @PreAuthorize("hasAnyAuthority('ADMIN','SUB_ADMIN','LECTURER','STUDENT')")
         public ResponseEntity<?> view(@PathVariable String id, Authentication authentication) throws IOException {
                 User currentUser = (User) authentication.getPrincipal();
                 // increase view count when viewing inline
@@ -126,16 +126,23 @@ public class ResourceController {
         // return ResponseEntity.ok(api);
         // }
 
-        @Operation(summary = "Download resource file", description = "ADMIN any; SUB_ADMIN/LECTURER only within their department")
+        @Operation(summary = "Download resource file", description = "ADMIN any; SUB_ADMIN/LECTURER only within their department; STUDENT only within their classroom")
         @GetMapping("/{id}/download")
-        @PreAuthorize("hasAnyAuthority('ADMIN','SUB_ADMIN','LECTURER')")
+        @PreAuthorize("hasAnyAuthority('ADMIN','SUB_ADMIN','LECTURER','STUDENT')")
         public ResponseEntity<?> download(@PathVariable String id, Authentication authentication) {
                 User currentUser = (User) authentication.getPrincipal();
-                FileSystemResource file = resourceService.downloadResourceFile(id, currentUser);
-                String filename = file.getFilename();
+                be.library_digital.demo.dto.response.ResourceDownloadResponse downloadResponse = resourceService
+                                .downloadResourceFile(id, currentUser);
+                FileSystemResource file = downloadResponse.getFile();
+                String filename = downloadResponse.getFilename();
+
+                org.springframework.http.ContentDisposition contentDisposition = org.springframework.http.ContentDisposition
+                                .builder("attachment")
+                                .filename(filename, java.nio.charset.StandardCharsets.UTF_8)
+                                .build();
 
                 return ResponseEntity.ok()
-                                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                                 .contentLength(file.getFile().length())
                                 .body(file);
@@ -224,6 +231,36 @@ public class ResourceController {
                 return ResponseEntity.ok(api);
         }
 
+        @Operation(summary = "Search folders (LECTURER only)", description = "Search for Course folders using keyword and filters")
+        @GetMapping("/search-folders")
+        @PreAuthorize("hasAuthority('LECTURER')")
+        public ResponseEntity<?> searchFoldersForLecturer(
+                        @RequestParam(name = "courseKeyword", required = false) String courseKeyword,
+                        @RequestParam(name = "programCode", required = false) List<String> programCodes,
+                        @RequestParam(name = "specializationCode", required = false) List<String> specializationCodes,
+                        @RequestParam(name = "cohortCode", required = false) List<String> cohortCodes,
+                        @RequestParam(name = "classroomId", required = false) List<String> classroomIds,
+                        @RequestParam(name = "lecturerId", required = false) List<String> lecturerIds,
+                        @RequestParam(name = "typeId", required = false) List<String> typeIds,
+                        Authentication authentication) {
+                User currentUser = (User) authentication.getPrincipal();
+                ResourceFolderResponse resp = resourceService.searchFoldersForLecturer(
+                                currentUser,
+                                courseKeyword,
+                                programCodes,
+                                specializationCodes,
+                                cohortCodes,
+                                classroomIds,
+                                lecturerIds,
+                                typeIds);
+                ApiResponse<ResourceFolderResponse> api = ApiResponse.<ResourceFolderResponse>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Success")
+                                .data(resp)
+                                .build();
+                return ResponseEntity.ok(api);
+        }
+
         @Operation(summary = "Browse resources by folder hierarchy (LECTURER)", description = "Folder levels: Program -> Specialization -> Course -> Lecturer -> Classroom -> Resources")
         @GetMapping("/browse")
         @PreAuthorize("hasAuthority('LECTURER')")
@@ -242,6 +279,38 @@ public class ResourceController {
                                 courseTitle,
                                 lecturerId,
                                 classroomId);
+                ApiResponse<ResourceFolderResponse> api = ApiResponse.<ResourceFolderResponse>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Success")
+                                .data(resp)
+                                .build();
+                return ResponseEntity.ok(api);
+        }
+
+        @Operation(summary = "Browse resources (STUDENT only)", description = "Browse resources in student's classroom. If courseTitle missing, returns list of Courses. If courseTitle present, returns Resources.")
+        @GetMapping("/student/browse")
+        @PreAuthorize("hasAuthority('STUDENT')")
+        public ResponseEntity<?> browseForStudent(
+                        @RequestParam(name = "courseTitle", required = false) String courseTitle,
+                        Authentication authentication) {
+                User currentUser = (User) authentication.getPrincipal();
+                ResourceFolderResponse resp = resourceService.browseFoldersForStudent(currentUser, courseTitle);
+                ApiResponse<ResourceFolderResponse> api = ApiResponse.<ResourceFolderResponse>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Success")
+                                .data(resp)
+                                .build();
+                return ResponseEntity.ok(api);
+        }
+
+        @Operation(summary = "Search folder resources (STUDENT only)", description = "Search for courses in student's classroom by keyword")
+        @GetMapping("/student/search")
+        @PreAuthorize("hasAuthority('STUDENT')")
+        public ResponseEntity<?> searchForStudent(
+                        @RequestParam(name = "courseKeyword", required = false) String courseKeyword,
+                        Authentication authentication) {
+                User currentUser = (User) authentication.getPrincipal();
+                ResourceFolderResponse resp = resourceService.searchFoldersForStudent(currentUser, courseKeyword);
                 ApiResponse<ResourceFolderResponse> api = ApiResponse.<ResourceFolderResponse>builder()
                                 .status(HttpStatus.OK.value())
                                 .message("Success")

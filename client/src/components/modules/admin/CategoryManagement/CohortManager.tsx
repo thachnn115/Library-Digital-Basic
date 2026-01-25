@@ -73,6 +73,7 @@ export const CohortManager: React.FC = () => {
 		mutationFn: (data: CreateCohortRequest) => cohortApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["cohorts"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo khóa thành công!");
 		},

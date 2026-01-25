@@ -62,8 +62,8 @@ public class FileConversionService {
 
         Path cachedPdf = cacheDir.resolve(pdfFilename);
 
-        // Check if cache exists first
-        if (Files.exists(cachedPdf)) {
+        // Check if cache exists and is valid (not empty)
+        if (Files.exists(cachedPdf) && Files.size(cachedPdf) > 0) {
             // Touch the file to update last modified time so it doesn't get cleaned up soon
             Files.setLastModifiedTime(cachedPdf, java.nio.file.attribute.FileTime.from(Instant.now()));
             return cachedPdf;
@@ -83,6 +83,12 @@ public class FileConversionService {
             return cachedPdf;
         } catch (Exception e) {
             log.error("Failed to convert file {}", filename, e);
+            // Clean up potentially empty/corrupt file
+            try {
+                Files.deleteIfExists(cachedPdf);
+            } catch (IOException deleteEx) {
+                log.warn("Failed to delete corrupt cached file: {}", cachedPdf, deleteEx);
+            }
             throw new IOException("Failed to convert file to PDF", e);
         }
     }

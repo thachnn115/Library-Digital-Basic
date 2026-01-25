@@ -1,5 +1,13 @@
 package be.library_digital.demo.service;
 
+import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.Optional;
+
 import be.library_digital.demo.common.ApprovalStatus;
 import be.library_digital.demo.dto.request.ResourceUploadRequest;
 import be.library_digital.demo.dto.response.ResourceResponse;
@@ -18,7 +26,9 @@ import be.library_digital.demo.repository.CommentRepository;
 import be.library_digital.demo.repository.RatingRepository;
 import be.library_digital.demo.repository.HistoryRepository;
 import be.library_digital.demo.repository.ResourceTypeRepository;
+import be.library_digital.demo.repository.ResourceTypeRepository;
 import be.library_digital.demo.repository.SpecializationRepository;
+import be.library_digital.demo.repository.TrainingProgramRepository;
 import be.library_digital.demo.model.Comment;
 import be.library_digital.demo.model.Rating;
 import be.library_digital.demo.model.History;
@@ -35,11 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
-import java.util.List;
-import java.util.Set;
-import java.util.Collections;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -60,6 +66,8 @@ public class ResourceService {
     private final RatingRepository ratingRepository;
     private final HistoryRepository historyRepository;
     private final SpecializationRepository specializationRepository;
+    private final be.library_digital.demo.repository.ClassroomRepository classroomRepository;
+    private final TrainingProgramRepository trainingProgramRepository;
 
     @Value("${file.upload-dir:uploads/library-resources}")
     private String uploadDir;
@@ -81,6 +89,11 @@ public class ResourceService {
                 !course.getDepartment().getId().equals(currentUser.getDepartment().getId())) {
             throw new ForbiddenException("You can only upload resources to courses in your department");
         }
+
+        // Handle Classroom linking
+        be.library_digital.demo.model.Classroom classroom = classroomRepository.findById(request.getClassroomId())
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
+
         // Save file to local upload directory
         String original = file.getOriginalFilename();
         String ext = "";
@@ -92,6 +105,7 @@ public class ResourceService {
         resource.setTitle(request.getTitle());
         resource.setDescription(request.getDescription());
         resource.setCourse(course);
+        resource.setClassroom(classroom);
         resource.setType(type);
         resource.setUploadedBy(currentUser);
         resource.setApprovalStatus(ApprovalStatus.APPROVED);
@@ -163,6 +177,99 @@ public class ResourceService {
                 .collect(Collectors.toList());
     }
 
+    public ResourceFolderResponse searchFoldersForLecturer(User currentUser,
+            String courseKeyword,
+            List<String> programCodes,
+            List<String> specializationCodes,
+            List<String> cohortCodes,
+            List<String> classroomIds,
+            List<String> lecturerIds,
+            List<String> typeIds) {
+        if (currentUser == null || !UserType.LECTURER.equals(currentUser.getType())) {
+            throw new ForbiddenException("Only LECTURER can search resources");
+        }
+        if (currentUser.getDepartment() == null) {
+            throw new ForbiddenException("LECTURER must belong to a department");
+        }
+
+        String keyword = courseKeyword != null ? courseKeyword.trim().toLowerCase() : null;
+        var programSet = normalizeSet(programCodes);
+        var specSet = normalizeSet(specializationCodes);
+        var cohortSet = normalizeSet(cohortCodes);
+        var classSet = normalizeSet(classroomIds);
+        var lecturerSet = normalizeSet(lecturerIds);
+        var typeSet = normalizeSet(typeIds);
+        Long deptId = currentUser.getDepartment().getId();
+
+        Map<String, FolderNodeResponse> courseMap = resourceRepository.findAll().stream()
+                .filter(r -> {
+                    // must be same department as lecturer (by uploader)
+                    return r.getUploadedBy() != null &&
+                            r.getUploadedBy().getDepartment() != null &&
+                            deptId.equals(r.getUploadedBy().getDepartment().getId());
+                })
+                .filter(r -> keyword == null ||
+                        (r.getCourse() != null &&
+                                ((r.getCourse().getTitle() != null
+                                        && r.getCourse().getTitle().toLowerCase().contains(keyword)) ||
+                                        (r.getCourse().getCode() != null
+                                                && r.getCourse().getCode().toLowerCase().contains(keyword)))))
+                .filter(r -> {
+                    be.library_digital.demo.model.Classroom cls = getClassroomForResource(r);
+
+                    if (!programSet.isEmpty()) {
+                        if (cls == null || !hasProgramCode(cls.getSpecialization(), programSet))
+                            return false;
+                    }
+
+                    if (!specSet.isEmpty()) {
+                        if (cls == null || cls.getSpecialization() == null
+                                || cls.getSpecialization().getCode() == null ||
+                                !specSet.contains(cls.getSpecialization().getCode().toLowerCase()))
+                            return false;
+                    }
+
+                    if (!cohortSet.isEmpty()) {
+                        if (cls == null || cls.getCohort() == null || cls.getCohort().getCode() == null ||
+                                !cohortSet.contains(cls.getCohort().getCode().toLowerCase()))
+                            return false;
+                    }
+
+                    if (!classSet.isEmpty()) {
+                        if (cls == null || cls.getId() == null ||
+                                !classSet.contains(cls.getId().toLowerCase()))
+                            return false;
+                    }
+
+                    return true;
+                })
+                .filter(r -> lecturerSet.isEmpty() ||
+                        (r.getUploadedBy() != null && r.getUploadedBy().getId() != null &&
+                                lecturerSet.contains(r.getUploadedBy().getId().toLowerCase())))
+                .filter(r -> typeSet.isEmpty() ||
+                        (r.getType() != null && r.getType().getId() != null &&
+                                typeSet.contains(r.getType().getId().toLowerCase())))
+                .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
+                .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null)
+                .collect(Collectors.toMap(
+                        r -> r.getCourse().getTitle().toLowerCase(),
+                        r -> FolderNodeResponse.builder()
+                                .type("COURSE_TITLE")
+                                .id(r.getCourse().getTitle())
+                                .name(r.getCourse().getTitle())
+                                .build(),
+                        (a, b) -> a)); // keep first found
+
+        List<FolderNodeResponse> courses = new ArrayList<>(courseMap.values());
+
+        return ResourceFolderResponse.builder()
+                .level("COURSE_TITLE")
+                .nodes(courses)
+                .currentUrl("/resource/search-folders")
+                .nextParam("courseTitle") // Hint for frontend on what param this maps to
+                .build();
+    }
+
     public List<ResourceResponse> searchForLecturer(User currentUser,
             String courseKeyword,
             List<String> programCodes,
@@ -200,25 +307,35 @@ public class ResourceService {
                                         && r.getCourse().getTitle().toLowerCase().contains(keyword)) ||
                                         (r.getCourse().getCode() != null
                                                 && r.getCourse().getCode().toLowerCase().contains(keyword)))))
-                .filter(r -> programSet.isEmpty() ||
-                        hasProgramCode(r.getCourse() != null && r.getCourse().getClassroom() != null
-                                ? r.getCourse().getClassroom().getSpecialization()
-                                : null, programSet))
-                .filter(r -> specSet.isEmpty() ||
-                        (r.getCourse() != null && r.getCourse().getClassroom() != null &&
-                                r.getCourse().getClassroom().getSpecialization() != null &&
-                                r.getCourse().getClassroom().getSpecialization().getCode() != null &&
-                                specSet.contains(
-                                        r.getCourse().getClassroom().getSpecialization().getCode().toLowerCase())))
-                .filter(r -> cohortSet.isEmpty() ||
-                        (r.getCourse() != null && r.getCourse().getClassroom() != null &&
-                                r.getCourse().getClassroom().getCohort() != null &&
-                                r.getCourse().getClassroom().getCohort().getCode() != null &&
-                                cohortSet.contains(r.getCourse().getClassroom().getCohort().getCode().toLowerCase())))
-                .filter(r -> classSet.isEmpty() ||
-                        (r.getCourse() != null && r.getCourse().getClassroom() != null &&
-                                r.getCourse().getClassroom().getId() != null &&
-                                classSet.contains(r.getCourse().getClassroom().getId().toLowerCase())))
+                .filter(r -> {
+                    be.library_digital.demo.model.Classroom cls = getClassroomForResource(r);
+
+                    if (!programSet.isEmpty()) {
+                        if (cls == null || !hasProgramCode(cls.getSpecialization(), programSet))
+                            return false;
+                    }
+
+                    if (!specSet.isEmpty()) {
+                        if (cls == null || cls.getSpecialization() == null
+                                || cls.getSpecialization().getCode() == null ||
+                                !specSet.contains(cls.getSpecialization().getCode().toLowerCase()))
+                            return false;
+                    }
+
+                    if (!cohortSet.isEmpty()) {
+                        if (cls == null || cls.getCohort() == null || cls.getCohort().getCode() == null ||
+                                !cohortSet.contains(cls.getCohort().getCode().toLowerCase()))
+                            return false;
+                    }
+
+                    if (!classSet.isEmpty()) {
+                        if (cls == null || cls.getId() == null ||
+                                !classSet.contains(cls.getId().toLowerCase()))
+                            return false;
+                    }
+
+                    return true;
+                })
                 .filter(r -> lecturerSet.isEmpty() ||
                         (r.getUploadedBy() != null && r.getUploadedBy().getId() != null &&
                                 lecturerSet.contains(r.getUploadedBy().getId().toLowerCase())))
@@ -228,6 +345,104 @@ public class ResourceService {
                 .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
                 .map(this::toResourceResponseWithStats)
                 .collect(Collectors.toList());
+    }
+
+    public ResourceFolderResponse browseFoldersForStudent(User currentUser, String courseTitle) {
+        if (currentUser == null || !UserType.STUDENT.equals(currentUser.getType())) {
+            throw new ForbiddenException("Only STUDENT can access this");
+        }
+        if (currentUser.getClassroom() == null) {
+            throw new ForbiddenException("Student must be assigned to a classroom");
+        }
+        String classroomId = currentUser.getClassroom().getId();
+
+        // If courseTitle provided -> Return RESOURCES
+        if (courseTitle != null) {
+            String titleLower = courseTitle.trim().toLowerCase();
+            List<ResourceResponse> resources = resourceRepository.findAll().stream()
+                    .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
+                    .filter(r -> {
+                        be.library_digital.demo.model.Classroom cls = getClassroomForResource(r);
+                        return cls != null && classroomId.equals(cls.getId());
+                    })
+                    .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null &&
+                            r.getCourse().getTitle().toLowerCase().equals(titleLower))
+                    .map(this::toResourceResponseWithStats)
+                    .collect(Collectors.toList());
+
+            return ResourceFolderResponse.builder()
+                    .level("RESOURCE")
+                    .resources(resources)
+                    .currentUrl("/resource/student/browse?courseTitle=" + courseTitle) // adjust if needed
+                    .parentUrl("/resource/student/browse")
+                    .build();
+        }
+
+        // If no courseTitle -> Return COURSES (folders) available for this classroom
+        Map<String, FolderNodeResponse> courseMap = resourceRepository.findAll().stream()
+                .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
+                .filter(r -> {
+                    be.library_digital.demo.model.Classroom cls = getClassroomForResource(r);
+                    return cls != null && classroomId.equals(cls.getId());
+                })
+                .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null)
+                .collect(Collectors.toMap(
+                        r -> r.getCourse().getTitle().toLowerCase(),
+                        r -> FolderNodeResponse.builder()
+                                .type("COURSE_TITLE")
+                                .id(r.getCourse().getTitle())
+                                .name(r.getCourse().getTitle())
+                                .build(),
+                        (a, b) -> a));
+
+        List<FolderNodeResponse> courses = new ArrayList<>(courseMap.values());
+        return ResourceFolderResponse.builder()
+                .level("COURSE_TITLE")
+                .nodes(courses)
+                .currentUrl("/resource/student/browse")
+                .nextParam("courseTitle")
+                .build();
+    }
+
+    public ResourceFolderResponse searchFoldersForStudent(User currentUser, String courseKeyword) {
+        if (currentUser == null || !UserType.STUDENT.equals(currentUser.getType())) {
+            throw new ForbiddenException("Only STUDENT can access this");
+        }
+        if (currentUser.getClassroom() == null) {
+            throw new ForbiddenException("Student must be assigned to a classroom");
+        }
+        String classroomId = currentUser.getClassroom().getId();
+        String keyword = courseKeyword != null ? courseKeyword.trim().toLowerCase() : null;
+
+        Map<String, FolderNodeResponse> courseMap = resourceRepository.findAll().stream()
+                .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
+                .filter(r -> {
+                    be.library_digital.demo.model.Classroom cls = getClassroomForResource(r);
+                    return cls != null && classroomId.equals(cls.getId());
+                })
+                .filter(r -> keyword == null ||
+                        (r.getCourse() != null &&
+                                ((r.getCourse().getTitle() != null
+                                        && r.getCourse().getTitle().toLowerCase().contains(keyword)) ||
+                                        (r.getCourse().getCode() != null
+                                                && r.getCourse().getCode().toLowerCase().contains(keyword)))))
+                .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null)
+                .collect(Collectors.toMap(
+                        r -> r.getCourse().getTitle().toLowerCase(),
+                        r -> FolderNodeResponse.builder()
+                                .type("COURSE_TITLE")
+                                .id(r.getCourse().getTitle())
+                                .name(r.getCourse().getTitle())
+                                .build(),
+                        (a, b) -> a));
+
+        List<FolderNodeResponse> courses = new ArrayList<>(courseMap.values());
+        return ResourceFolderResponse.builder()
+                .level("COURSE_TITLE")
+                .nodes(courses)
+                .currentUrl("/resource/student/search")
+                .nextParam("courseTitle")
+                .build();
     }
 
     public ResourceFolderResponse browseFoldersForLecturer(User currentUser,
@@ -249,14 +464,14 @@ public class ResourceService {
         List<BreadcrumbItem> breadcrumbs = buildBreadcrumbs(programCode, specializationCode, courseTitle, lecturerId,
                 classroomId);
 
-        // level 6: resources for classroom + lecturer + courseTitle
+        // Level 6: resources for classroom + lecturer + courseTitle
         if (classroomId != null && lecturerId != null && courseTitle != null) {
             String titleLower = courseTitle.trim().toLowerCase();
             List<ResourceResponse> resources = resourceRepository.findAll().stream()
                     .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
-                    .filter(r -> r.getCourse() != null && r.getCourse().getClassroom() != null &&
-                            classroomId.equals(r.getCourse().getClassroom().getId()))
-                    .filter(r -> r.getCourse().getTitle() != null &&
+                    .filter(r -> r.getClassroom() != null &&
+                            classroomId.equals(r.getClassroom().getId()))
+                    .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null &&
                             r.getCourse().getTitle().toLowerCase().equals(titleLower))
                     .filter(r -> r.getUploadedBy() != null && lecturerId.equals(r.getUploadedBy().getId()))
                     .filter(r -> r.getUploadedBy().getDepartment() != null &&
@@ -273,24 +488,24 @@ public class ResourceService {
                     .build();
         }
 
-        // level 5: classrooms where lecturer taught courses with this title
+        // Level 5: classrooms where lecturer taught courses with this title
         if (lecturerId != null && courseTitle != null) {
             String titleLower = courseTitle.trim().toLowerCase();
             List<FolderNodeResponse> nodes = resourceRepository.findAll().stream()
                     .filter(r -> ApprovalStatus.APPROVED.equals(r.getApprovalStatus()))
-                    .filter(r -> r.getCourse() != null && r.getCourse().getClassroom() != null)
-                    .filter(r -> r.getCourse().getTitle() != null &&
+                    .filter(r -> r.getClassroom() != null)
+                    .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null &&
                             r.getCourse().getTitle().toLowerCase().equals(titleLower))
                     .filter(r -> r.getUploadedBy() != null && lecturerId.equals(r.getUploadedBy().getId()))
                     .filter(r -> r.getUploadedBy().getDepartment() != null &&
                             deptId.equals(r.getUploadedBy().getDepartment().getId()))
                     .collect(Collectors.toMap(
-                            r -> r.getCourse().getClassroom().getId(),
+                            r -> r.getClassroom().getId(),
                             r -> FolderNodeResponse.builder()
                                     .type("CLASSROOM")
-                                    .id(r.getCourse().getClassroom().getId())
-                                    .code(r.getCourse().getClassroom().getCode())
-                                    .name(r.getCourse().getClassroom().getName())
+                                    .id(r.getClassroom().getId())
+                                    .code(r.getClassroom().getCode())
+                                    .name(r.getClassroom().getName())
                                     .build(),
                             (a, b) -> a))
                     .values().stream().collect(Collectors.toList());
@@ -335,13 +550,16 @@ public class ResourceService {
         }
 
         // level 3: course titles under specialization
+        // level 3: course titles under specialization
         if (specializationCode != null) {
-            var spec = specializationRepository.findByCodeIgnoreCase(specializationCode.trim())
+            String specCode = specializationCode.trim();
+            var spec = specializationRepository.findByCodeIgnoreCase(specCode)
                     .orElseThrow(() -> new ResourceNotFoundException("Specialization not found"));
-            if (!deptSpecializationIds.contains(spec.getId())) {
-                throw new ForbiddenException("Specialization not in your department");
-            }
-            List<FolderNodeResponse> courses = courseRepository.findAll().stream()
+            // Note: We removed the check that enforces Spec must be in Dept.
+            // But we still link courses/resources to deptId below.
+
+            // Collect from Courses
+            Map<String, FolderNodeResponse> courseMap = courseRepository.findAll().stream()
                     .filter(c -> c.getClassroom() != null && c.getClassroom().getSpecialization() != null &&
                             spec.getId().equals(c.getClassroom().getSpecialization().getId()))
                     .filter(c -> c.getDepartment() != null &&
@@ -354,8 +572,31 @@ public class ResourceService {
                                     .id(c.getTitle()) // use title as id
                                     .name(c.getTitle())
                                     .build(),
-                            (a, b) -> a))
-                    .values().stream().collect(Collectors.toList());
+                            (a, b) -> a));
+
+            // Also collect from Resources (robust fallback)
+            resourceRepository.findAll().stream()
+                    .filter(r -> r.getUploadedBy() != null &&
+                            r.getUploadedBy().getDepartment() != null &&
+                            deptId.equals(r.getUploadedBy().getDepartment().getId()))
+                    .filter(r -> r.getClassroom() != null &&
+                            r.getClassroom().getSpecialization() != null &&
+                            spec.getId().equals(r.getClassroom().getSpecialization().getId()))
+                    .filter(r -> r.getCourse() != null && r.getCourse().getTitle() != null)
+                    .forEach(r -> {
+                        String title = r.getCourse().getTitle();
+                        String key = title.toLowerCase();
+                        if (!courseMap.containsKey(key)) {
+                            courseMap.put(key, FolderNodeResponse.builder()
+                                    .type("COURSE_TITLE")
+                                    .id(title)
+                                    .name(title)
+                                    .build());
+                        }
+                    });
+
+            List<FolderNodeResponse> courses = new ArrayList<>(courseMap.values());
+
             return ResourceFolderResponse.builder()
                     .level("COURSE_TITLE")
                     .nodes(courses)
@@ -367,18 +608,19 @@ public class ResourceService {
         }
 
         // level 2: specializations under program (same department)
+        // level 2: specializations under program
         if (programCode != null) {
             String programCodeFilter = programCode.trim().toLowerCase();
             List<FolderNodeResponse> specs = specializationRepository.findAll().stream()
-                    .filter(s -> deptSpecializationIds.contains(s.getId()))
                     .filter(s -> hasProgramCode(s, Set.of(programCodeFilter)))
                     .map(s -> FolderNodeResponse.builder()
                             .type("SPECIALIZATION")
-                            .id(s.getId())
+                            .id(s.getCode())
                             .code(s.getCode())
                             .name(s.getName())
                             .build())
                     .collect(Collectors.toList());
+
             return ResourceFolderResponse.builder()
                     .level("SPECIALIZATION")
                     .nodes(specs)
@@ -389,23 +631,15 @@ public class ResourceService {
                     .build();
         }
 
-        // level 1: top-level programs within lecturer's department (through
-        // specializations)
-        List<FolderNodeResponse> programs = specializationRepository.findAll().stream()
-                .filter(s -> deptSpecializationIds.contains(s.getId()))
-                .filter(s -> s.getPrograms() != null && !s.getPrograms().isEmpty())
-                .flatMap(s -> s.getPrograms().stream())
-                .filter(p -> p != null && p.getCode() != null)
-                .collect(Collectors.toMap(
-                        p -> p.getCode(),
-                        p -> FolderNodeResponse.builder()
-                                .type("PROGRAM")
-                                .id(p.getId())
-                                .code(p.getCode())
-                                .name(p.getName())
-                                .build(),
-                        (a, b) -> a))
-                .values().stream().collect(Collectors.toList());
+        // level 1: all training programs
+        List<FolderNodeResponse> programs = trainingProgramRepository.findAll().stream()
+                .map(p -> FolderNodeResponse.builder()
+                        .type("PROGRAM")
+                        .id(p.getCode())
+                        .code(p.getCode())
+                        .name(p.getName())
+                        .build())
+                .collect(Collectors.toList());
 
         return ResourceFolderResponse.builder()
                 .level("PROGRAM")
@@ -446,7 +680,8 @@ public class ResourceService {
         return ResourceResponse.fromResource(saved);
     }
 
-    public FileSystemResource downloadResourceFile(String resourceId, User currentUser) {
+    public be.library_digital.demo.dto.response.ResourceDownloadResponse downloadResourceFile(String resourceId,
+            User currentUser) {
         if (currentUser == null || currentUser.getType() == null) {
             throw new ForbiddenException("You don't have permission to download this resource");
         }
@@ -467,7 +702,22 @@ public class ResourceService {
         log.info("Incremented downloads for resource id={} to {}", resourceId, resource.getDownloads());
 
         saveHistory(currentUser, resource, HistoryAction.DOWNLOAD);
-        return new FileSystemResource(filePath);
+
+        // Construct friendly filename
+        String extension = "";
+        String originalPath = resource.getFileUrl();
+        if (originalPath != null && originalPath.contains(".")) {
+            extension = originalPath.substring(originalPath.lastIndexOf('.'));
+        }
+
+        // Sanitize title for filename
+        String safeTitle = resource.getTitle().replaceAll("[\\\\/:*?\"<>|]", "_");
+        String filename = safeTitle + extension;
+
+        return be.library_digital.demo.dto.response.ResourceDownloadResponse.builder()
+                .file(new FileSystemResource(filePath))
+                .filename(filename)
+                .build();
     }
 
     public FileSystemResource viewResourceFile(String resourceId, User currentUser) {
@@ -624,6 +874,8 @@ public class ResourceService {
         if (UserType.ADMIN.equals(currentUser.getType())) {
             return;
         }
+
+        // LECTURER / SUB_ADMIN: check Department
         if ((UserType.SUB_ADMIN.equals(currentUser.getType()) || UserType.LECTURER.equals(currentUser.getType()))
                 && resource.getUploadedBy() != null
                 && resource.getUploadedBy().getDepartment() != null
@@ -631,7 +883,31 @@ public class ResourceService {
                 && currentUser.getDepartment().getId().equals(resource.getUploadedBy().getDepartment().getId())) {
             return;
         }
+
+        // STUDENT: check Classroom
+        if (UserType.STUDENT.equals(currentUser.getType())) {
+            if (currentUser.getClassroom() == null) {
+                throw new ForbiddenException("Student must be assigned to a classroom");
+            }
+
+            be.library_digital.demo.model.Classroom resClassroom = getClassroomForResource(resource);
+            if (resClassroom != null &&
+                    currentUser.getClassroom().getId().equals(resClassroom.getId())) {
+                return;
+            }
+        }
+
         throw new ForbiddenException("You don't have permission to view this resource");
+    }
+
+    private be.library_digital.demo.model.Classroom getClassroomForResource(Resource r) {
+        if (r.getClassroom() != null) {
+            return r.getClassroom();
+        }
+        if (r.getCourse() != null) {
+            return r.getCourse().getClassroom();
+        }
+        return null;
     }
 
     private boolean hasProgramCode(Specialization specialization, Set<String> programCodes) {
@@ -647,13 +923,27 @@ public class ResourceService {
     }
 
     private Set<String> resolveSpecializationIdsByInstructorDept(Long deptId) {
-        return courseRepository.findAll().stream()
+        Set<String> specIds = courseRepository.findAll().stream()
                 .filter(course -> course.getDepartment() != null &&
                         deptId.equals(course.getDepartment().getId()))
                 .filter(course -> course.getClassroom() != null &&
                         course.getClassroom().getSpecialization() != null)
                 .map(course -> course.getClassroom().getSpecialization().getId())
                 .collect(Collectors.toSet());
+
+        // Also include specializations from resources uploaded by this department users
+        // This ensures that if a resource was uploaded to a Classroom, that hierarchy
+        // appears even if Course definition is incomplete
+        resourceRepository.findAll().stream()
+                .filter(r -> r.getUploadedBy() != null &&
+                        r.getUploadedBy().getDepartment() != null &&
+                        deptId.equals(r.getUploadedBy().getDepartment().getId()))
+                .filter(r -> r.getClassroom() != null &&
+                        r.getClassroom().getSpecialization() != null)
+                .map(r -> r.getClassroom().getSpecialization().getId())
+                .forEach(specIds::add);
+
+        return specIds;
     }
 
     private Set<String> normalizeSet(List<String> values) {

@@ -114,7 +114,7 @@ export interface ResourceSearchParams {
   typeId?: string[];
 }
 
-export type ResourceSortOption = 
+export type ResourceSortOption =
   | 'newest' // Mới -> Cũ (mặc định)
   | 'oldest' // Cũ -> Mới
   | 'year' // Năm (theo năm của createdAt)
@@ -127,6 +127,7 @@ export interface ResourceUploadRequest {
   description?: string;
   courseId: string;
   resourceTypeId: string;
+  classroomId: string;
 }
 
 export interface ResourceBrowseParams {
@@ -159,4 +160,3 @@ export interface BreadcrumbItem {
   label: string;
   url: string;
 }
-

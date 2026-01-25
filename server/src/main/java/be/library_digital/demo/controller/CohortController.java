@@ -71,13 +71,12 @@ public class CohortController {
 
     @Operation(summary = "List cohorts", description = "ADMIN only; optional filter by code/programCode/startYear/endYear")
     @GetMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'SUB_ADMIN', 'LECTURER')")
     public ResponseEntity<?> list(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String programCode,
             @RequestParam(required = false) Integer startYear,
-            @RequestParam(required = false) Integer endYear
-    ) {
+            @RequestParam(required = false) Integer endYear) {
         List<CohortResponse> list = cohortService.getAll(code, programCode, startYear, endYear);
         ApiResponse<List<CohortResponse>> api = ApiResponse.<List<CohortResponse>>builder()
                 .status(HttpStatus.OK.value())

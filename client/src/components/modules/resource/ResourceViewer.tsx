@@ -48,11 +48,11 @@ export const ResourceViewer: React.FC<ResourceViewerProps> = ({
 				type: type,
 				isBlob: blob instanceof Blob,
 			});
-			
+
 			// Store the blob
 			setFileBlob(blob);
 			setFileType(type);
-			
+
 			// Create blob URL for non-PDF files (iframe fallback)
 			const url = URL.createObjectURL(blob);
 			setFileUrl(url);
@@ -67,7 +67,15 @@ export const ResourceViewer: React.FC<ResourceViewerProps> = ({
 		mutationFn: (id: string) => resourceApi.download(id),
 		onSuccess: (blob, resourceId) => {
 			const url = URL.createObjectURL(blob);
-			const fileName = resource?.title || `resource-${resourceId}`;
+			// Get extension from fileUrl
+			let ext = '';
+			if (resource?.fileUrl) {
+				const lastDot = resource.fileUrl.lastIndexOf('.');
+				if (lastDot > 0) {
+					ext = resource.fileUrl.substring(lastDot);
+				}
+			}
+			const fileName = (resource?.title || `resource-${resourceId}`) + ext;
 			downloadFile(url, fileName);
 			message.success('Tải xuống thành công!');
 		},
@@ -85,7 +93,7 @@ export const ResourceViewer: React.FC<ResourceViewerProps> = ({
 			}
 			setFileBlob(null);
 			setFileType('');
-			
+
 			// Fetch new resource
 			viewMutation.mutate(resource.id);
 		}
@@ -170,7 +178,7 @@ export const ResourceViewer: React.FC<ResourceViewerProps> = ({
 				) : fileBlob && isPDF ? (
 					// Use Blob directly - the blob is already cloned to prevent detachment
 					// PDF.js can handle Blob objects when they're properly cloned
-					<PDFViewer 
+					<PDFViewer
 						file={fileBlob}
 						onLoadError={(error) => {
 							console.error('PDF load error:', error);

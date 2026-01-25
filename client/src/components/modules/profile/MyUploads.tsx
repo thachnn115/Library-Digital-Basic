@@ -39,7 +39,15 @@ export const MyUploads: React.FC<MyUploadsProps> = ({
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement('a');
 			link.href = url;
-			link.download = `${resource.title}.pdf`;
+			// Get extension from fileUrl
+			let ext = '';
+			if (resource.fileUrl) {
+				const lastDot = resource.fileUrl.lastIndexOf('.');
+				if (lastDot > 0) {
+					ext = resource.fileUrl.substring(lastDot);
+				}
+			}
+			link.download = `${resource.title}${ext}`;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);

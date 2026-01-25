@@ -21,4 +21,7 @@ public class ResourceUploadRequest {
 
     @NotBlank(message = "resourceTypeId phải được cung cấp")
     private String resourceTypeId;
+
+    @NotBlank(message = "classroomId phải được cung cấp")
+    private String classroomId;
 }

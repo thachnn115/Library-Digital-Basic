@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Modal, Form, Input, Select, Steps, message, Alert, Layout, Card, Divider } from "antd";
-import { FolderOutlined, CheckCircleOutlined, FileTextOutlined, EditOutlined, TagOutlined } from "@ant-design/icons";
+import { FolderOutlined, CheckCircleOutlined, FileTextOutlined, EditOutlined, TagOutlined, TeamOutlined } from "@ant-design/icons";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { resourceApi } from "@/api/resource.api";
 import { courseApi } from "@/api/course.api";
+import { classroomApi } from "@/api/classroom.api";
 import { resourceTypeApi } from "@/api/resource-type.api";
 import { FileUpload } from "@/components/common/FileUpload";
 import { useAuthStore } from "@/stores/auth.store";
@@ -19,6 +20,7 @@ const uploadSchema = z.object({
 	title: z.string().min(1, "Tiêu đề không được để trống"),
 	description: z.string().optional(),
 	courseId: z.string().min(1, "Phải chọn học phần"),
+	classroomId: z.string().min(1, "Phải chọn lớp học"),
 	resourceTypeId: z.string().min(1, "Phải chọn loại học liệu"),
 	file: z.instanceof(File, { message: "Phải chọn file" }),
 });
@@ -56,6 +58,11 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 		queryFn: () => resourceTypeApi.getAll(),
 	});
 
+	const { data: allClassrooms = [] } = useQuery({
+		queryKey: ["classrooms"],
+		queryFn: () => classroomApi.getAll(),
+	});
+
 	const {
 		control,
 		handleSubmit,
@@ -90,6 +97,28 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 	const selectedCourse = availableCourses.find(
 		(c) => c.id.toString() === selectedCourseId
 	);
+
+	// Create map of specialized classrooms if needed, or just list all active classrooms
+	// Since we don't have a strict link, we show all classrooms, maybe filtered by validation later if needed.
+	// User just said "Select Class".
+	// Ideally we filter classes that are teaching this course, but that relationship is usually in Grade/Score tables.
+	// For now, listing all classrooms is acceptable or filtering by Department if possible.
+	// Classrooms belong to Specialization. Specialization belongs to Department.
+	// Let's filter Classrooms that belong to the same Department as the Course/User?
+	const availableClassrooms = useMemo(() => {
+		if (!selectedCourse) return [];
+		// Filter based on implicit logic or simply return all.
+		// Let's return all for flexibility unless user complains.
+		// Actually, let's try to be smart: if Course has department, and Classroom has Specialization -> Department, match them.
+		/*
+		return allClassrooms.filter(cr => {
+			// complex logic, maybe skip for now to avoid overengineering without clear data model
+			return true;
+		});
+		*/
+		return allClassrooms;
+	}, [allClassrooms, selectedCourse]);
+
 
 	const uploadMutation = useMutation({
 		mutationFn: async (data: ResourceUploadRequest & { file: File }) => {
@@ -162,7 +191,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 			open={open}
 			onCancel={handleCancel}
 			footer={null}
-			width={800}
+			width={900}
 		>
 			<Steps
 				current={currentStep}
@@ -216,6 +245,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 											? "Không tìm thấy học phần"
 											: "Không tìm thấy"
 									}
+									size="large"
 								/>
 							</Form.Item>
 						)}
@@ -296,7 +326,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 			)}
 
 			{currentStep === 2 && (
-				<Layout style={{ background: "transparent", minHeight: "400px" }}>
+				<Layout style={{ background: "transparent", minHeight: "500px" }}>
 					<Layout.Sider
 						width={300}
 						style={{
@@ -307,67 +337,46 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 						}}
 					>
 						<div className="space-y-4">
-							<h3 className="font-semibold text-lg mb-4">Chọn folder học phần</h3>
+							<h3 className="font-semibold text-lg mb-4">Học phần đã chọn</h3>
 
-							<div className="space-y-2">
-								<p className="text-sm font-medium text-gray-700 mb-2">
-									Danh sách học phần:
-								</p>
-								{availableCourses.length === 0 ? (
-									<p className="text-sm text-gray-500">
-										Không có học phần nào
-									</p>
-								) : (
-									<div className="space-y-2">
-										{availableCourses.map((course) => {
-											const isSelected = course.id.toString() === selectedCourseId;
-											return (
-												<Card
-													key={course.id}
-													size="small"
-													hoverable
-													onClick={() => {
-														setValue("courseId", course.id.toString(), {
-															shouldValidate: true,
-														});
-													}}
-													style={{
-														cursor: "pointer",
-														borderColor: isSelected ? "#1890ff" : undefined,
-														borderWidth: isSelected ? 2 : 1,
-														backgroundColor: isSelected ? "#e6f7ff" : "white",
-													}}
-													className={isSelected ? "shadow-md" : ""}
-												>
-													<div className="flex items-start gap-2">
-														<FolderOutlined
-															className="text-blue-500 mt-1"
-															style={{ fontSize: "16px" }}
-														/>
-														<div className="flex-1 text-sm">
-															<div className="flex items-center gap-2">
-																<p className="font-medium">
-																	{course.code} - {course.title}
-																</p>
-																{isSelected && (
-																	<CheckCircleOutlined
-																		className="text-blue-500"
-																		style={{ fontSize: "14px" }}
-																	/>
-																)}
-															</div>
-															{course.department && (
-																<p className="text-xs text-gray-500 mt-1">
-																	Khoa: {course.department.name} ({course.department.code})
-																</p>
-															)}
-														</div>
-													</div>
-												</Card>
-											);
-										})}
+							{selectedCourse ? (
+								<Card
+									size="small"
+									className="border-blue-200 bg-blue-50"
+								>
+									<div className="flex items-start gap-2">
+										<FolderOutlined
+											className="text-blue-500 mt-1"
+											style={{ fontSize: "16px" }}
+										/>
+										<div className="flex-1 text-sm">
+											<p className="font-bold text-gray-800">
+												{selectedCourse.code}
+											</p>
+											<p className="text-gray-700">
+												{selectedCourse.title}
+											</p>
+											{selectedCourse.department && (
+												<p className="text-xs text-gray-500 mt-1">
+													Khoa: {selectedCourse.department.name}
+												</p>
+											)}
+										</div>
+										<CheckCircleOutlined className="text-blue-500" />
 									</div>
-								)}
+								</Card>
+							) : (
+								<Alert type="warning" message="Chưa chọn học phần" />
+							)}
+
+							<div className="mt-8">
+								<h4 className="font-medium text-gray-700 mb-2">Tên file:</h4>
+								<div className="bg-white p-3 rounded border border-gray-200 flex items-center gap-2">
+									<FileTextOutlined className="text-gray-400" />
+									<span className="text-sm truncate max-w-full" title={selectedFile?.name}>
+										{selectedFile?.name}
+									</span>
+								</div>
 							</div>
 						</div>
 					</Layout.Sider>
@@ -380,144 +389,140 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 									<span className="text-lg font-semibold">Thông tin học liệu</span>
 								</div>
 							}
-							className="shadow-sm"
+							className="shadow-sm h-full"
 						>
 							<Form
 								layout="vertical"
 								onFinish={handleSubmit((data) => {
 									uploadMutation.mutate(data);
 								})}
+								className="h-full flex flex-col"
 							>
-								{selectedCourse && (
-									<Card
-										size="small"
-										className="mb-6"
-										style={{
-											backgroundColor: "#f0f9ff",
-											borderColor: "#3b82f6",
-											borderWidth: 1,
-										}}
-									>
-										<div className="flex items-start gap-3">
-											<CheckCircleOutlined className="text-blue-500 text-lg mt-1" />
-											<div className="flex-1">
-												<p className="text-xs font-medium text-gray-500 mb-1">
-													Học phần đã chọn
-												</p>
-												<p className="font-semibold text-base text-gray-900">
-													{selectedCourse.code} - {selectedCourse.title}
-												</p>
-												{selectedCourse.department && (
-													<p className="text-sm text-gray-600 mt-1">
-														Khoa:{" "}
-														<span className="font-medium">
-															{selectedCourse.department.name} ({selectedCourse.department.code})
-														</span>
-													</p>
-												)}
-											</div>
-										</div>
-									</Card>
-								)}
-
-								{!selectedCourse && (
-									<Alert
-										message="Vui lòng chọn học phần"
-										description="Bạn cần chọn một học phần từ danh sách bên trái để tiếp tục."
-										type="warning"
-										showIcon
-										className="mb-6"
+								<div className="flex-1 overflow-y-auto pr-2">
+									<Controller
+										name="title"
+										control={control}
+										render={({ field }) => (
+											<Form.Item
+												label={
+													<span className="font-medium">
+														<EditOutlined className="mr-2 text-blue-500" />
+														Tên học liệu
+													</span>
+												}
+												validateStatus={errors.title ? "error" : ""}
+												help={errors.title?.message}
+												required
+												className="mb-4"
+											>
+												<Input
+													{...field}
+													placeholder="Nhập tên học liệu"
+													size="large"
+													className="rounded-md"
+												/>
+											</Form.Item>
+										)}
 									/>
-								)}
 
-								<Divider titlePlacement="left" plain>
-									<span className="text-sm font-medium text-gray-600">Chi tiết học liệu</span>
-								</Divider>
+									<Controller
+										name="description"
+										control={control}
+										render={({ field }) => (
+											<Form.Item
+												label={
+													<span className="font-medium">
+														<FileTextOutlined className="mr-2 text-blue-500" />
+														Mô tả
+													</span>
+												}
+												className="mb-4"
+											>
+												<TextArea
+													{...field}
+													rows={3}
+													placeholder="Nhập mô tả học liệu (tùy chọn)"
+													className="rounded-md"
+													showCount
+													maxLength={500}
+												/>
+											</Form.Item>
+										)}
+									/>
 
-								<Controller
-									name="title"
-									control={control}
-									render={({ field }) => (
-										<Form.Item
-											label={
-												<span className="font-medium">
-													<EditOutlined className="mr-2 text-blue-500" />
-													Tên học liệu
-												</span>
-											}
-											validateStatus={errors.title ? "error" : ""}
-											help={errors.title?.message}
-											required
-											className="mb-4"
-										>
-											<Input
-												{...field}
-												placeholder="Nhập tên học liệu"
-												size="large"
-												className="rounded-md"
-											/>
-										</Form.Item>
-									)}
-								/>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<Controller
+											name="resourceTypeId"
+											control={control}
+											render={({ field }) => (
+												<Form.Item
+													label={
+														<span className="font-medium">
+															<TagOutlined className="mr-2 text-blue-500" />
+															Loại học liệu
+														</span>
+													}
+													validateStatus={errors.resourceTypeId ? "error" : ""}
+													help={errors.resourceTypeId?.message}
+													required
+													className="mb-4"
+												>
+													<Select
+														{...field}
+														placeholder="Chọn loại"
+														size="large"
+														className="rounded-md"
+														options={resourceTypes.map((type) => ({
+															value: type.id.toString(),
+															label: type.name,
+														}))}
+													/>
+												</Form.Item>
+											)}
+										/>
 
-								<Controller
-									name="description"
-									control={control}
-									render={({ field }) => (
-										<Form.Item
-											label={
-												<span className="font-medium">
-													<FileTextOutlined className="mr-2 text-blue-500" />
-													Mô tả
-												</span>
-											}
-											className="mb-4"
-										>
-											<TextArea
-												{...field}
-												rows={4}
-												placeholder="Nhập mô tả học liệu (tùy chọn)"
-												className="rounded-md"
-												showCount
-												maxLength={500}
-											/>
-										</Form.Item>
-									)}
-								/>
+										<Controller
+											name="classroomId"
+											control={control}
+											render={({ field }) => (
+												<Form.Item
+													label={
+														<span className="font-medium">
+															<TeamOutlined className="mr-2 text-blue-500" />
+															Lớp học
+														</span>
+													}
+													validateStatus={errors.classroomId ? "error" : ""}
+													help={errors.classroomId?.message}
+													required
+													className="mb-4"
+												>
+													<Select
+														{...field}
+														placeholder="Chọn lớp học"
+														size="large"
+														className="rounded-md"
+														allowClear
+														showSearch
+														filterOption={(input, option) =>
+															(option?.label ?? "")
+																.toLowerCase()
+																.includes(input.toLowerCase())
+														}
+														options={availableClassrooms.map((cls) => ({
+															value: cls.id.toString(),
+															label: `${cls.code} - ${cls.name}`,
+														}))}
+													/>
+												</Form.Item>
+											)}
+										/>
+									</div>
+								</div>
 
-								<Controller
-									name="resourceTypeId"
-									control={control}
-									render={({ field }) => (
-										<Form.Item
-											label={
-												<span className="font-medium">
-													<TagOutlined className="mr-2 text-blue-500" />
-													Loại học liệu
-												</span>
-											}
-											validateStatus={errors.resourceTypeId ? "error" : ""}
-											help={errors.resourceTypeId?.message}
-											required
-											className="mb-6"
-										>
-											<Select
-												{...field}
-												placeholder="Chọn loại học liệu"
-												size="large"
-												className="rounded-md"
-												options={resourceTypes.map((type) => ({
-													value: type.id.toString(),
-													label: type.name,
-												}))}
-											/>
-										</Form.Item>
-									)}
-								/>
+								<Divider className="my-4" />
 
-								<Divider />
-
-								<div className="flex justify-end gap-3 mt-6">
+								<div className="flex justify-end gap-3">
 									<button
 										type="button"
 										onClick={() => setCurrentStep(1)}

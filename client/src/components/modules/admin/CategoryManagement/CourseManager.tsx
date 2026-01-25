@@ -102,6 +102,7 @@ export const CourseManager: React.FC = () => {
 		mutationFn: (data: CreateCourseRequest) => courseApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["courses"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo học phần thành công!");
 		},

@@ -9,17 +9,17 @@ import { toast } from 'sonner';
  * Provides auth state and actions
  */
 export const useAuth = () => {
-  const { 
-    user, 
-    accessToken, 
-    isAuthenticated, 
+  const {
+    user,
+    accessToken,
+    isAuthenticated,
     isLoading,
-    setAuth, 
-    logout, 
+    setAuth,
+    logout,
     updateUser,
     setLoading,
     hasRole,
-    hasAnyRole 
+    hasAnyRole
   } = useAuthStore();
 
   // Login mutation
@@ -36,24 +36,24 @@ export const useAuth = () => {
     },
     onError: (error: unknown) => {
       console.error('Login error:', error);
-      
+
       // Extract error message from API response
       let errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
-      
+
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { 
-          response?: { 
-            data?: { 
+        const axiosError = error as {
+          response?: {
+            data?: {
               message?: string;
               error?: string;
             };
             status?: number;
-          } 
+          }
         };
-        
+
         const responseData = axiosError.response?.data;
         const status = axiosError.response?.status;
-        
+
         // Backend trả về ErrorResponse với field 'message'
         if (responseData?.message) {
           // Translate common error messages
@@ -77,7 +77,7 @@ export const useAuth = () => {
       } else if (error instanceof Error) {
         errorMessage = error.message || errorMessage;
       }
-      
+
       toast.error(errorMessage);
     },
   });
@@ -110,17 +110,18 @@ export const useAuth = () => {
     accessToken,
     isAuthenticated,
     isLoading: isLoading || loginMutation.isPending || logoutMutation.isPending,
-    
+
     // Actions
     login,
     logout: handleLogout,
     updateUser,
-    
+
     // Permission helpers
     hasRole,
     hasAnyRole,
     isAdmin: hasRole('ADMIN'),
     isSubAdmin: hasRole('SUB_ADMIN'),
     isLecturer: hasRole('LECTURER'),
+    isStudent: hasRole('STUDENT'),
   };
 };

@@ -64,6 +64,7 @@ export const ResourceTypeManager: React.FC = () => {
 			resourceTypeApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["resource-types"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo loại học liệu thành công!");
 		},

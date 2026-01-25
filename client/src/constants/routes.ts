@@ -80,6 +80,11 @@ export const ROUTES = {
 	SUB_ADMIN_USERS: "/sub-admin/users",
 	SUB_ADMIN_COURSES: "/sub-admin/courses",
 	SUB_ADMIN_STATS: "/sub-admin/stats",
+
+	// Student routes
+	STUDENT_HOME: "/student/home",
+	STUDENT_RESOURCES: "/student/resources",
+	STUDENT_PROFILE: "/student/profile",
 } as const;
 
 export interface RouteConfig {
@@ -87,7 +92,7 @@ export interface RouteConfig {
 	element: ComponentType;
 	layout?: ComponentType<{ children: React.ReactNode }>;
 	isProtected?: boolean;
-	requiredRoles?: ("ADMIN" | "SUB_ADMIN" | "LECTURER")[];
+	requiredRoles?: ("ADMIN" | "SUB_ADMIN" | "LECTURER" | "STUDENT")[];
 }
 
 /**
@@ -145,7 +150,7 @@ export const routes: RouteConfig[] = [
 		path: ROUTES.RESOURCES_DETAIL,
 		element: ResourceDetailPage,
 		isProtected: true,
-		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER"],
+		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER", "STUDENT"],
 	},
 	{
 		path: ROUTES.PROFILE,
@@ -157,7 +162,30 @@ export const routes: RouteConfig[] = [
 		path: ROUTES.GUIDE,
 		element: GuidePage,
 		isProtected: true,
-		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER"],
+		requiredRoles: ["ADMIN", "SUB_ADMIN", "LECTURER", "STUDENT"],
+	},
+
+	// Student routes
+	{
+		path: ROUTES.STUDENT_HOME,
+		// Reuse ResourceSearchPage for now, or create simple Home
+		// But plan says StudentResourcePage for resources. Let's redirect home to resources or make a dashboard.
+		// For simplicity, Student Home = Student Resources
+		element: lazy(() => import("@/pages/student/StudentResourcePage")),
+		isProtected: true,
+		requiredRoles: ["STUDENT"],
+	},
+	{
+		path: ROUTES.STUDENT_RESOURCES,
+		element: lazy(() => import("@/pages/student/StudentResourcePage")),
+		isProtected: true,
+		requiredRoles: ["STUDENT"],
+	},
+	{
+		path: ROUTES.STUDENT_PROFILE,
+		element: ProfilePage, // Reuse ProfilePage
+		isProtected: true,
+		requiredRoles: ["STUDENT"],
 	},
 
 	// Admin routes (protected)

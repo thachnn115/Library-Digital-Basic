@@ -48,11 +48,11 @@ export const RecentDownloads: React.FC<RecentDownloadsProps> = ({
 
 		for (const item of sortedHistory) {
 			const resourceId = item.resource?.id;
-			
+
 			if (!resourceId) {
 				continue; // Skip if no resource ID
 			}
-			
+
 			// Only add if this file hasn't been seen before
 			// This way we show ALL different files, but each file only appears once (most recent download)
 			if (!seenResourceIds.has(resourceId)) {
@@ -81,7 +81,15 @@ export const RecentDownloads: React.FC<RecentDownloadsProps> = ({
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement('a');
 			link.href = url;
-			link.download = `${resource.title}.pdf`;
+			// Get extension from fileUrl
+			let ext = '';
+			if (resource.fileUrl) {
+				const lastDot = resource.fileUrl.lastIndexOf('.');
+				if (lastDot > 0) {
+					ext = resource.fileUrl.substring(lastDot);
+				}
+			}
+			link.download = `${resource.title}${ext}`;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);

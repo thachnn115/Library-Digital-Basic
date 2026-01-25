@@ -36,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 		useState(false);
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { user, isAdmin, isSubAdmin, isLecturer, isAuthenticated } =
+	const { user, isAdmin, isSubAdmin, isLecturer, isStudent, isAuthenticated } =
 		useAuth();
 
 	// Calculate if password reminder should be shown (derived state)
@@ -130,11 +130,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 					icon: <UserOutlined />,
 					label: "Hồ sơ cá nhân",
 				},
-			{
-				key: "/guide",
-				icon: <QuestionCircleOutlined />,
-				label: "Hướng dẫn",
-			},
+				{
+					key: "/guide",
+					icon: <QuestionCircleOutlined />,
+					label: "Hướng dẫn",
+				},
+			];
+		}
+
+		if (isStudent) {
+			return [
+				{
+					key: "/student/resources",
+					icon: <FileTextOutlined />,
+					label: "Học liệu của lớp",
+				},
+				{
+					key: "/student/profile",
+					icon: <UserOutlined />,
+					label: "Hồ sơ cá nhân",
+				},
+				{
+					key: "/guide",
+					icon: <QuestionCircleOutlined />,
+					label: "Hướng dẫn",
+				},
 			];
 		}
 
@@ -166,7 +186,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 			>
 				{/* Decorative gradient overlay */}
 				<div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-				
+
 				{/* Logo/Brand Section */}
 				<div className="h-16 flex items-center border-b border-white/30 px-4 relative z-10 bg-white/5 backdrop-blur-sm">
 					{!collapsed ? (
@@ -191,7 +211,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 						</div>
 					)}
 				</div>
-				
+
 				{/* Menu */}
 				<Menu
 					mode="inline"
@@ -212,7 +232,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 					collapsed={collapsed}
 					onToggleCollapse={() => setCollapsed(!collapsed)}
 				/>
-				
+
 				{/* Content */}
 				<Content className="m-6 flex-1 overflow-auto">
 					<div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 p-6 md:p-8 min-h-[60vh] backdrop-blur-sm bg-white/95">

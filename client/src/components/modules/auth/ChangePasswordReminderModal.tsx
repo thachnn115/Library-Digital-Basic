@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Modal, Button, Alert } from 'antd';
 import { ExclamationCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuth } from '@/hooks/useAuth';
+import { ROUTES } from '@/constants/routes';
 
 interface ChangePasswordReminderModalProps {
 	open: boolean;
@@ -18,15 +19,16 @@ export const ChangePasswordReminderModal: React.FC<ChangePasswordReminderModalPr
 	onCancel,
 }) => {
 	const navigate = useNavigate();
-	const { user } = useAuthStore();
+	const { isStudent, user } = useAuth();
 	const [loading, setLoading] = useState(false);
 
 	const handleGoToChangePassword = () => {
 		setLoading(true);
 		// Close modal first
 		onCancel?.();
-		// Navigate to profile page with state to auto-open change password modal
-		navigate('/profile', { state: { openChangePassword: true } });
+		// Navigate to correct profile page based on role
+		const profilePath = isStudent ? ROUTES.STUDENT_PROFILE : ROUTES.PROFILE;
+		navigate(profilePath, { state: { openChangePassword: true } });
 		setLoading(false);
 	};
 

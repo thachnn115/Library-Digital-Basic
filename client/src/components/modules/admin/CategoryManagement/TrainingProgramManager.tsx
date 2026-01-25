@@ -77,6 +77,7 @@ export const TrainingProgramManager: React.FC = () => {
 			trainingProgramApi.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["training-programs"] });
+			setEditModalOpen(false);
 			reset();
 			message.success("Tạo chương trình đào tạo thành công!");
 		},

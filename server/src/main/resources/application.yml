@@ -9,7 +9,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -53,7 +53,7 @@ jwt:
 
 account:
   admin:
-    email: ${ROOT_USERNAME:admin@gmail.com}
+    email: ${ROOT_USERNAME:admin@stu.t08.vn}
     password: ${ROOT_PASSWORD:123456789}
 
 openrouter:

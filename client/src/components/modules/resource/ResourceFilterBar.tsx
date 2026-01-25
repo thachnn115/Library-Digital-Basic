@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Select, Button, Card, Divider } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
@@ -6,13 +6,11 @@ import { trainingProgramApi } from "@/api/training-program.api";
 import { specializationApi } from "@/api/specialization.api";
 import { cohortApi } from "@/api/cohort.api";
 import { classroomApi } from "@/api/classroom.api";
-import { courseApi } from "@/api/course.api";
 import { userApi } from "@/api/user.api";
 import { resourceTypeApi } from "@/api/resource-type.api";
 import { useAuthStore } from "@/stores/auth.store";
 import type { ResourceSearchParams } from "@/types/resource.types";
 import type {
-	Course,
 	TrainingProgram,
 	Cohort,
 	Classroom,
@@ -42,21 +40,18 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 	);
 	const { user } = useAuthStore();
 
-	// Fetch filter options - For ADMIN/SUB_ADMIN: fetch from API
-	// For LECTURER: extract from courses (since LECTURER can't access GET /program and GET /cohort)
+	// Fetch filter options - Enabled for all authenticated users
 	const { data: allPrograms = [] } = useQuery<TrainingProgram[]>({
 		queryKey: ["training-programs"],
 		queryFn: () => trainingProgramApi.getAll(),
-		enabled:
-			(user?.type === "ADMIN" || user?.type === "SUB_ADMIN") && !!user?.id,
+		enabled: !!user?.id,
 		retry: false,
 	});
 
 	const { data: allCohorts = [] } = useQuery<Cohort[]>({
 		queryKey: ["cohorts"],
 		queryFn: () => cohortApi.getAll(),
-		enabled:
-			(user?.type === "ADMIN" || user?.type === "SUB_ADMIN") && !!user?.id,
+		enabled: !!user?.id,
 		retry: false,
 	});
 
@@ -66,112 +61,17 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 		retry: false,
 	});
 
-	// For LECTURER: Get classrooms from courses (since LECTURER can't access GET /classroom)
-	// For ADMIN/SUB_ADMIN: Fetch classrooms from API
 	const { data: allClassrooms = [] } = useQuery<Classroom[]>({
 		queryKey: ["classrooms"],
 		queryFn: () => classroomApi.getAll(),
-		enabled:
-			(user?.type === "ADMIN" || user?.type === "SUB_ADMIN") && !!user?.id,
+		enabled: !!user?.id,
 		retry: false,
 	});
 
-	const { data: allCourses = [] } = useQuery({
-		queryKey: ["courses", user?.id, user?.type],
-		queryFn: () => courseApi.getAll(),
-		enabled: user?.type === "LECTURER" && !!user?.id,
-		retry: false,
-	});
-
-	// Extract unique programs, cohorts, and classrooms from courses for LECTURER
-	const programsFromCourses = useMemo(() => {
-		if (user?.type !== "LECTURER" || !allCourses.length) {
-			return [];
-		}
-		const programMap = new Map<
-			string,
-			{ id: string | number; code: string; name: string }
-		>();
-		(allCourses as Course[]).forEach((course) => {
-			const specPrograms = course.classroom?.specialization?.programs || [];
-			if (specPrograms.length > 0) {
-				specPrograms.forEach((program) => {
-					if (program?.code && !programMap.has(program.code)) {
-						programMap.set(program.code, {
-							id: program.id || program.code,
-							code: program.code,
-							name: program.name || program.code,
-						});
-					}
-				});
-				return;
-			}
-
-			const program =
-				course.classroom?.specialization?.program ||
-				course.classroom?.specialization?.trainingProgram;
-			if (program?.code && !programMap.has(program.code)) {
-				programMap.set(program.code, {
-					id: program.id || program.code,
-					code: program.code,
-					name: program.name || program.code,
-				});
-			}
-		});
-		return Array.from(programMap.values());
-	}, [allCourses, user?.type]);
-
-	const cohortsFromCourses = useMemo(() => {
-		if (user?.type !== "LECTURER" || !allCourses.length) {
-			return [];
-		}
-		const cohortMap = new Map<
-			string,
-			{
-				id: string | number;
-				code: string;
-				startYear?: number;
-				endYear?: number;
-			}
-		>();
-		(allCourses as Course[]).forEach((course) => {
-			const cohort = course.classroom?.cohort;
-			if (cohort?.code) {
-				if (!cohortMap.has(cohort.code)) {
-					cohortMap.set(cohort.code, {
-						id: cohort.id || cohort.code,
-						code: cohort.code,
-						startYear: cohort.startYear,
-						endYear: cohort.endYear,
-					});
-				}
-			}
-		});
-		return Array.from(cohortMap.values());
-	}, [allCourses, user?.type]);
-
-	const classroomsFromCourses = useMemo(() => {
-		if (user?.type !== "LECTURER" || !allCourses.length) {
-			return [];
-		}
-		const classroomMap = new Map<string, Course["classroom"]>();
-		(allCourses as Course[]).forEach((course) => {
-			if (course.classroom?.id) {
-				const classroomId = course.classroom.id.toString();
-				if (!classroomMap.has(classroomId)) {
-					classroomMap.set(classroomId, course.classroom);
-				}
-			}
-		});
-		return Array.from(classroomMap.values());
-	}, [allCourses, user?.type]);
-
-	// Use data from API for ADMIN/SUB_ADMIN, or from courses for LECTURER
-	const programs =
-		user?.type === "LECTURER" ? programsFromCourses : allPrograms;
-	const cohorts = user?.type === "LECTURER" ? cohortsFromCourses : allCohorts;
-	const classrooms =
-		user?.type === "LECTURER" ? classroomsFromCourses : allClassrooms;
+	// Use data from API for everyone
+	const programs = allPrograms;
+	const cohorts = allCohorts;
+	const classrooms = allClassrooms;
 
 	// Fetch lecturers (only in same department for LECTURER/SUB_ADMIN)
 	const { data: lecturersData } = useQuery({
@@ -330,8 +230,8 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 									{cohort.startYear && cohort.endYear
 										? `(${cohort.startYear}-${cohort.endYear})`
 										: cohort.startYear
-										? `(${cohort.startYear})`
-										: ""}
+											? `(${cohort.startYear})`
+											: ""}
 								</Option>
 							))}
 						</Select>

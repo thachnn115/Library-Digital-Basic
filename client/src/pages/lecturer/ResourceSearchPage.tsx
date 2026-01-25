@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Card, Select, Space, Button } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { Card, Select, Space, Button, message } from "antd";
+import { ArrowLeftOutlined, FolderOutlined } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resourceApi } from "@/api/resource.api";
 import { ResourceSearchBox } from "@/components/modules/resource/ResourceSearchBox";
@@ -20,8 +20,6 @@ import type {
 	BreadcrumbItem,
 } from "@/types/resource.types";
 import { downloadFile } from "@/utils/file.utils";
-import { message } from "antd";
-import { FolderOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
 
@@ -73,79 +71,24 @@ const ResourceSearchPage: React.FC = () => {
 	// Search should run if there's a keyword OR active filters
 	const shouldSearch = searchKeyword.length > 0 || hasActiveFilters;
 
-	const { data: searchResultsRaw = [], isLoading: isSearching } = useQuery({
+	const { data: searchFolderData } = useQuery({
 		queryKey: ["resources", "search", searchParams],
-		queryFn: () => resourceApi.search(searchParams),
+		queryFn: () => resourceApi.searchFolders(searchParams),
 		enabled: shouldSearch,
 	});
 
-	// Apply sort to search results
-	const searchResults = useMemo(() => {
-		if (!searchResultsRaw.length) return [];
-
-		const sorted = [...searchResultsRaw];
-
-		switch (sortOption) {
-			case "newest":
-				// Mới -> Cũ (mặc định)
-				sorted.sort((a, b) => {
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateB - dateA; // Descending
-				});
-				break;
-			case "oldest":
-				// Cũ -> Mới
-				sorted.sort((a, b) => {
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateA - dateB; // Ascending
-				});
-				break;
-			case "year":
-				// Năm (theo năm của createdAt, mới -> cũ)
-				sorted.sort((a, b) => {
-					const yearA = new Date(a.createdAt || 0).getFullYear();
-					const yearB = new Date(b.createdAt || 0).getFullYear();
-					if (yearB !== yearA) {
-						return yearB - yearA; // Descending by year
-					}
-					// Same year, sort by full date (newest first)
-					const dateA = new Date(a.createdAt || 0).getTime();
-					const dateB = new Date(b.createdAt || 0).getTime();
-					return dateB - dateA;
-				});
-				break;
-			case "downloads":
-				// Lượt tải
-				sorted.sort((a, b) => {
-					const downloadsA = a.stats?.downloads || 0;
-					const downloadsB = b.stats?.downloads || 0;
-					return downloadsB - downloadsA; // Descending
-				});
-				break;
-			case "alphabetical":
-				// Bảng chữ cái
-				sorted.sort((a, b) => {
-					const titleA = (a.title || "").toLowerCase();
-					const titleB = (b.title || "").toLowerCase();
-					return titleA.localeCompare(titleB, "vi"); // Vietnamese locale
-				});
-				break;
-			case "lecturer":
-				// Giảng viên (theo tên)
-				sorted.sort((a, b) => {
-					const nameA = (a.uploadedBy?.fullName || "").toLowerCase();
-					const nameB = (b.uploadedBy?.fullName || "").toLowerCase();
-					return nameA.localeCompare(nameB, "vi"); // Vietnamese locale
-				});
-				break;
-			default:
-				break;
+	// Convert search results to folder items
+	const searchFolderItems: FolderItem[] = useMemo(() => {
+		if (!searchFolderData?.nodes || !Array.isArray(searchFolderData.nodes)) {
+			return [];
 		}
-
-		return sorted;
-	}, [searchResultsRaw, sortOption]);
+		return searchFolderData.nodes.map((node: FolderNodeResponse) => ({
+			id: node.id,
+			title: node.name,
+			type: "custom", // Search results are custom folders (Course Titles)
+			icon: <FolderOutlined />,
+		}));
+	}, [searchFolderData]);
 
 	// Apply sort to browse resources
 	const browseResources = browseData?.resources;
@@ -240,8 +183,8 @@ const ResourceSearchPage: React.FC = () => {
 			) {
 				const cachedData = query.state.data as
 					| {
-							nodes?: FolderNodeResponse[];
-					  }
+						nodes?: FolderNodeResponse[];
+					}
 					| undefined;
 				if (cachedData?.nodes && Array.isArray(cachedData.nodes)) {
 					cachedData.nodes.forEach((node) => {
@@ -586,35 +529,38 @@ const ResourceSearchPage: React.FC = () => {
 			{/* Show search results if searching */}
 			{showSearchResults && (
 				<Card>
-					<div className="mb-4 flex items-center justify-between">
-						<div>
-							<p className="text-gray-600">
-								Tìm thấy <strong>{searchResults.length}</strong> học liệu
-							</p>
-						</div>
-						<Space>
-							<span className="text-sm text-gray-600">Sắp xếp:</span>
-							<Select
-								value={sortOption}
-								onChange={setSortOption}
-								style={{ width: 220 }}
-								size="middle"
-							>
-								<Option value="newest">Mới → Cũ</Option>
-								<Option value="oldest">Cũ → Mới</Option>
-								<Option value="year">Năm</Option>
-								<Option value="downloads">Lượt tải</Option>
-								<Option value="alphabetical">Bảng chữ cái</Option>
-								<Option value="lecturer">Giảng viên</Option>
-							</Select>
-						</Space>
+					<div className="mb-4">
+						<h3 className="text-lg font-semibold mb-2">Kết quả tìm kiếm</h3>
+						<p className="text-gray-600 mb-4">
+							Tìm thấy <strong>{searchFolderItems.length}</strong> học phần phù hợp
+						</p>
 					</div>
-					<ResourceList
-						resources={searchResults}
-						loading={isSearching}
-						onView={handleView}
-						onDownload={handleDownload}
-					/>
+
+					{searchFolderItems.length > 0 ? (
+						<FolderGrid
+							folders={searchFolderItems}
+							onFolderClick={(folder) => {
+								const newParams: ResourceBrowseParams = {};
+								// Map active filters to browse params (taking first value if array)
+								if (filters.programCode?.[0])
+									newParams.programCode = filters.programCode[0];
+								if (filters.specializationCode?.[0])
+									newParams.specializationCode = filters.specializationCode[0];
+								if (filters.lecturerId?.[0])
+									newParams.lecturerId = filters.lecturerId[0];
+								if (filters.classroomId?.[0])
+									newParams.classroomId = filters.classroomId[0];
+
+								newParams.courseTitle = folder.title;
+								setBrowseParams(newParams);
+								setSearchKeyword("");
+							}}
+						/>
+					) : (
+						<div className="text-center py-12 text-gray-500">
+							<p className="text-lg">Không tìm thấy kết quả nào</p>
+						</div>
+					)}
 				</Card>
 			)}
 
