@@ -72,7 +72,7 @@ public class SpecializationController {
         return ResponseEntity.ok(api);
     }
 
-    @Operation(summary = "List specializations", description = "ADMIN all; SUB_ADMIN/LECTURER only within their department; optional filters")
+    @Operation(summary = "List specializations", description = "ADMIN all; SUB_ADMIN/LECTURER all; optional filters")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN','SUB_ADMIN','LECTURER')")
     public ResponseEntity<?> list(

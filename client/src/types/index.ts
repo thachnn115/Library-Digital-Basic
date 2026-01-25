@@ -12,7 +12,6 @@ export type {
   ChangePasswordRequest,
   VerifyOtpRequest,
 } from './auth.types';
-export type { UserRole as AuthUserRole } from './auth.types';
 
 // User types
 export type {
@@ -26,12 +25,9 @@ export type { UserRole, Department as UserDepartment } from './user.types';
 // Resource types
 export type {
   Resource,
-  ResourceUploader,
-  ResourceCategory,
   ResourceSearchParams,
   ResourceUploadRequest,
   ResourceBrowseParams,
-  ResourceFolderNode,
 } from './resource.types';
 export type {
   ResourceType as ResourceResourceType,

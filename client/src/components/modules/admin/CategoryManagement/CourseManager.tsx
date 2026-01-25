@@ -25,16 +25,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAuth } from "@/hooks/useAuth";
 import { courseApi } from "@/api/course.api";
-import { classroomApi } from "@/api/classroom.api";
-import { specializationApi } from "@/api/specialization.api";
-import { userApi } from "@/api/user.api";
+import { departmentApi } from "@/api/department.api";
 import type { Course, CreateCourseRequest } from "@/types/department.types";
 
 const courseSchema = z.object({
-	title: z.string().min(1, "Tiêu đề học phần không được để trống"),
-	description: z.string().optional(),
-	classroomId: z.string().min(1, "Phải chọn lớp"),
-	instructorId: z.string().optional(),
+	code: z.string().min(1, "Mã học phần không được để trống"),
+	title: z.string().min(1, "Tên học phần không được để trống"),
+	departmentCode: z.string().min(1, "Phải chọn khoa"),
 });
 
 /**
@@ -46,122 +43,51 @@ export const CourseManager: React.FC = () => {
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+	const isSubAdmin = user?.type === "SUB_ADMIN";
+	const subAdminDeptCode = user?.department?.code;
 
 	const queryClient = useQueryClient();
 
 	// Debounce filter values
-	const [filterClassroomId, setFilterClassroomId] = useState<string>("");
-	const [filterSpecializationCode, setFilterSpecializationCode] =
+	const [filterDepartmentCode, setFilterDepartmentCode] =
 		useState<string>("");
-	const debouncedFilterClassroomId = useDebounce(filterClassroomId, 500);
-	const debouncedFilterSpecializationCode = useDebounce(
-		filterSpecializationCode,
+	const debouncedFilterDepartmentCode = useDebounce(
+		filterDepartmentCode,
 		500
 	);
 
-	// Fetch all classrooms - try to get from API (may fail for SUB_ADMIN, but we'll handle it)
-	const { data: allClassrooms = [], error: classroomsError } = useQuery({
-		queryKey: ["classrooms"],
-		queryFn: () => classroomApi.getAll(),
-		retry: false, // Don't retry if it fails (e.g., SUB_ADMIN doesn't have permission)
-	});
-
-	// Fetch courses first to get classrooms for SUB_ADMIN (fallback)
+	// Fetch courses
 	const { data: courses = [], isLoading } = useQuery({
 		queryKey: ["courses"],
 		queryFn: () => courseApi.getAll(),
 	});
 
-	// Get classrooms: from API if available, otherwise from courses (for SUB_ADMIN)
-	const classrooms = useMemo(() => {
-		const departmentId = user?.department?.id;
-
-		// If we got classrooms from API, filter by department for SUB_ADMIN
-		if (allClassrooms.length > 0 && !classroomsError) {
-			if (user?.type === "ADMIN") {
-				return allClassrooms;
-			}
-			// For SUB_ADMIN, filter by department
-			if (departmentId) {
-				return allClassrooms.filter(
-					(classroom) =>
-						classroom.specialization?.department?.id?.toString() ===
-						departmentId.toString()
-				);
-			}
-			return [];
-		}
-
-		// Fallback: get classrooms from courses (for SUB_ADMIN when API fails)
-		if (user?.type === "SUB_ADMIN" && departmentId) {
-			const uniqueClassrooms = new Map<
-				string,
-				NonNullable<Course["classroom"]>
-			>();
-			courses.forEach((course) => {
-				if (
-					course.classroom &&
-					course.classroom.specialization?.department?.id &&
-					course.classroom.specialization.department.id.toString() ===
-						departmentId.toString()
-				) {
-					uniqueClassrooms.set(
-						course.classroom.id.toString(),
-						course.classroom
-					);
-				}
-			});
-			return Array.from(uniqueClassrooms.values());
-		}
-
-		return [];
-	}, [
-		allClassrooms,
-		classroomsError,
-		courses,
-		user?.type,
-		user?.department?.id,
-	]);
-
-	// Get all specializations (filtered by backend for SUB_ADMIN)
-	const { data: specializations = [] } = useQuery({
-		queryKey: ["specializations"],
-		queryFn: () => specializationApi.getAll(),
+	// Get departments
+	const { data: departments = [] } = useQuery({
+		queryKey: ["departments"],
+		queryFn: () => departmentApi.getAll(),
 	});
 
-	// Get lecturers for instructor selection
-	const { data: lecturersData } = useQuery({
-		queryKey: ["users"],
-		queryFn: () => userApi.getAll(),
-	});
-
-	// Filter lecturers from all users
-	const lecturers =
-		lecturersData?.content?.filter((user) => user.type === "LECTURER") || [];
+	const departmentOptions = useMemo(() => {
+		if (isSubAdmin && subAdminDeptCode) {
+			return departments.filter((dept) => dept.code === subAdminDeptCode);
+		}
+		return departments;
+	}, [departments, isSubAdmin, subAdminDeptCode]);
 
 	// Filter courses on frontend
 	const filteredCourses = useMemo(() => {
 		let filtered = courses;
 
-		// Filter by classroom
-		if (debouncedFilterClassroomId) {
+		// Filter by department
+		if (debouncedFilterDepartmentCode) {
 			filtered = filtered.filter(
-				(course) =>
-					course.classroom?.id?.toString() === debouncedFilterClassroomId
-			);
-		}
-
-		// Filter by specialization
-		if (debouncedFilterSpecializationCode) {
-			filtered = filtered.filter(
-				(course) =>
-					course.classroom?.specialization?.code ===
-					debouncedFilterSpecializationCode
+				(course) => course.department?.code === debouncedFilterDepartmentCode
 			);
 		}
 
 		return filtered;
-	}, [courses, debouncedFilterClassroomId, debouncedFilterSpecializationCode]);
+	}, [courses, debouncedFilterDepartmentCode]);
 
 	const {
 		control,
@@ -227,10 +153,9 @@ export const CourseManager: React.FC = () => {
 		try {
 			const detail = await courseApi.getById(course.id);
 			reset({
-				title: detail.title || detail.name || "",
-				description: detail.description || "",
-				classroomId: detail.classroom?.id?.toString() || "",
-				instructorId: detail.instructor?.id?.toString() || "",
+				code: detail.code || "",
+				title: detail.title || "",
+				departmentCode: detail.department?.code || "",
 			});
 			setEditModalOpen(true);
 		} catch {
@@ -262,50 +187,24 @@ export const CourseManager: React.FC = () => {
 
 	const columns: ColumnsType<Course> = [
 		{
-			title: "Tiêu đề",
+			title: "Mã học phần",
+			dataIndex: "code",
+			key: "code",
+			render: (text) => text || "-",
+		},
+		{
+			title: "Tên học phần",
 			dataIndex: "title",
 			key: "title",
-			render: (text, record) => text || record.name || record.code || "-",
+			render: (text) => text || "-",
 		},
 		{
 			title: "Khoa",
 			key: "department",
 			render: (_, record) =>
-				record.classroom?.specialization?.department?.name || "-",
-		},
-		{
-			title: "Chương trình Đào tạo",
-			key: "program",
-			render: (_, record) =>
-				record.classroom?.specialization?.program?.name ||
-				record.classroom?.specialization?.trainingProgram?.name ||
-				"-",
-		},
-		{
-			title: "Chuyên ngành",
-			key: "specialization",
-			render: (_, record) => record.classroom?.specialization?.name || "-",
-		},
-		{
-			title: "Khóa",
-			key: "cohort",
-			render: (_, record) => record.classroom?.cohort?.code || "-",
-		},
-		{
-			title: "Lớp",
-			key: "classroom",
-			render: (_, record) => record.classroom?.name || "-",
-		},
-		{
-			title: "Giảng viên",
-			key: "instructor",
-			render: (_, record) => record.instructor?.fullName || "-",
-		},
-		{
-			title: "Mô tả",
-			dataIndex: "description",
-			key: "description",
-			render: (text) => text || "-",
+				record.department
+					? `${record.department.name} (${record.department.code})`
+					: "-",
 		},
 		{
 			title: "Thao tác",
@@ -348,7 +247,9 @@ export const CourseManager: React.FC = () => {
 					type="primary"
 					icon={<PlusOutlined />}
 					onClick={() => {
-						reset();
+						reset({
+							departmentCode: isSubAdmin && subAdminDeptCode ? subAdminDeptCode : "",
+						});
 						setSelectedCourse(null);
 						setEditModalOpen(true);
 					}}
@@ -360,34 +261,17 @@ export const CourseManager: React.FC = () => {
 			{/* Filter Section */}
 			<div className="flex gap-4 mb-4">
 				<Select
-					placeholder="Lọc theo Lớp"
-					value={filterClassroomId || undefined}
-					onChange={(value) => setFilterClassroomId(value || "")}
+					placeholder="Lọc theo khoa"
+					value={filterDepartmentCode || undefined}
+					onChange={(value) => setFilterDepartmentCode(value || "")}
 					allowClear
 					showSearch
 					filterOption={(input, option) =>
 						(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
 					}
-					options={classrooms
-						.filter((classroom) => classroom != null)
-						.map((classroom) => ({
-							label: `${classroom.code} - ${classroom.name}`,
-							value: classroom.id.toString(),
-						}))}
-					style={{ width: 300 }}
-				/>
-				<Select
-					placeholder="Lọc theo Chuyên ngành"
-					value={filterSpecializationCode || undefined}
-					onChange={(value) => setFilterSpecializationCode(value || "")}
-					allowClear
-					showSearch
-					filterOption={(input, option) =>
-						(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-					}
-					options={specializations.map((spec) => ({
-						label: `${spec.code} - ${spec.name}`,
-						value: spec.code,
+					options={departmentOptions.map((dept) => ({
+						label: `${dept.code} - ${dept.name}`,
+						value: dept.code,
 					}))}
 					style={{ width: 300 }}
 				/>
@@ -415,7 +299,22 @@ export const CourseManager: React.FC = () => {
 			>
 				<Form layout="vertical">
 					<Form.Item
-						label="Tiêu đề học phần"
+						label="Mã học phần"
+						validateStatus={errors.code ? "error" : ""}
+						help={errors.code?.message}
+						required
+					>
+						<Controller
+							name="code"
+							control={control}
+							render={({ field }) => (
+								<Input {...field} placeholder="Nhập mã học phần" />
+							)}
+						/>
+					</Form.Item>
+
+					<Form.Item
+						label="Tên học phần"
 						validateStatus={errors.title ? "error" : ""}
 						help={errors.title?.message}
 						required
@@ -424,82 +323,35 @@ export const CourseManager: React.FC = () => {
 							name="title"
 							control={control}
 							render={({ field }) => (
-								<Input {...field} placeholder="Nhập tiêu đề học phần" />
+								<Input {...field} placeholder="Nhập tên học phần" />
 							)}
 						/>
 					</Form.Item>
 
 					<Form.Item
-						label="Lớp"
-						validateStatus={errors.classroomId ? "error" : ""}
-						help={errors.classroomId?.message}
+						label="Khoa"
+						validateStatus={errors.departmentCode ? "error" : ""}
+						help={errors.departmentCode?.message}
 						required
 					>
 						<Controller
-							name="classroomId"
+							name="departmentCode"
 							control={control}
 							render={({ field }) => (
 								<Select
 									{...field}
-									placeholder="Chọn lớp"
+									placeholder="Chọn khoa"
 									showSearch
 									filterOption={(input, option) =>
 										(option?.label ?? "")
 											.toLowerCase()
 											.includes(input.toLowerCase())
 									}
-									options={classrooms
-										.filter((classroom) => classroom != null)
-										.map((classroom) => ({
-											label: `${classroom.code} - ${classroom.name}`,
-											value: classroom.id.toString(),
-										}))}
-								/>
-							)}
-						/>
-					</Form.Item>
-
-					<Form.Item
-						label="Giảng viên"
-						validateStatus={errors.instructorId ? "error" : ""}
-						help={errors.instructorId?.message}
-					>
-						<Controller
-							name="instructorId"
-							control={control}
-							render={({ field }) => (
-								<Select
-									{...field}
-									placeholder="Chọn giảng viên (tùy chọn)"
-									showSearch
-									allowClear
-									filterOption={(input, option) =>
-										(option?.label ?? "")
-											.toLowerCase()
-											.includes(input.toLowerCase())
-									}
-									options={lecturers.map((lecturer) => ({
-										label: `${lecturer.fullName} (${lecturer.email})`,
-										value: lecturer.id,
+									options={departmentOptions.map((dept) => ({
+										label: `${dept.code} - ${dept.name}`,
+										value: dept.code,
 									}))}
-								/>
-							)}
-						/>
-					</Form.Item>
-
-					<Form.Item
-						label="Mô tả"
-						validateStatus={errors.description ? "error" : ""}
-						help={errors.description?.message}
-					>
-						<Controller
-							name="description"
-							control={control}
-							render={({ field }) => (
-								<Input.TextArea
-									{...field}
-									rows={3}
-									placeholder="Nhập mô tả (tùy chọn)"
+									disabled={isSubAdmin}
 								/>
 							)}
 						/>
@@ -522,7 +374,7 @@ export const CourseManager: React.FC = () => {
 			>
 				<p>
 					Bạn có chắc chắn muốn xóa học phần{" "}
-					<strong>{selectedCourse?.title || selectedCourse?.name}</strong>?
+					<strong>{selectedCourse?.title || selectedCourse?.code}</strong>?
 				</p>
 			</Modal>
 
@@ -537,51 +389,16 @@ export const CourseManager: React.FC = () => {
 			>
 				{selectedCourse && (
 					<Descriptions column={1} bordered>
-						<Descriptions.Item label="Tiêu đề">
-							{selectedCourse.title || selectedCourse.name || "-"}
+						<Descriptions.Item label="Mã học phần">
+							{selectedCourse.code || "-"}
 						</Descriptions.Item>
-						<Descriptions.Item label="Mô tả">
-							{selectedCourse.description || "-"}
+						<Descriptions.Item label="Tên học phần">
+							{selectedCourse.title || "-"}
 						</Descriptions.Item>
 						<Descriptions.Item label="Khoa">
-							{selectedCourse.classroom?.specialization?.department?.name ||
-								"-"}{" "}
-							(
-							{selectedCourse.classroom?.specialization?.department?.code ||
-								"-"}
-							)
-						</Descriptions.Item>
-						<Descriptions.Item label="Chương trình Đào tạo">
-							{selectedCourse.classroom?.specialization?.program?.name ||
-								selectedCourse.classroom?.specialization?.trainingProgram
-									?.name ||
-								"-"}{" "}
-							(
-							{selectedCourse.classroom?.specialization?.program?.code ||
-								selectedCourse.classroom?.specialization?.trainingProgram
-									?.code ||
-								"-"}
-							)
-						</Descriptions.Item>
-						<Descriptions.Item label="Chuyên ngành">
-							{selectedCourse.classroom?.specialization?.name || "-"} (
-							{selectedCourse.classroom?.specialization?.code || "-"})
-						</Descriptions.Item>
-						<Descriptions.Item label="Khóa">
-							{selectedCourse.classroom?.cohort?.code || "-"} (
-							{selectedCourse.classroom?.cohort?.startYear || ""}
-							{selectedCourse.classroom?.cohort?.endYear
-								? `-${selectedCourse.classroom.cohort.endYear}`
-								: ""}
-							)
-						</Descriptions.Item>
-						<Descriptions.Item label="Lớp">
-							{selectedCourse.classroom?.name || "-"} (
-							{selectedCourse.classroom?.code || "-"})
-						</Descriptions.Item>
-						<Descriptions.Item label="Giảng viên">
-							{selectedCourse.instructor?.fullName || "-"} (
-							{selectedCourse.instructor?.email || "-"})
+							{selectedCourse.department
+								? `${selectedCourse.department.name} (${selectedCourse.department.code})`
+								: "-"}
 						</Descriptions.Item>
 						{selectedCourse.createdAt && (
 							<Descriptions.Item label="Ngày tạo">

@@ -63,14 +63,13 @@ public class CourseController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'SUB_ADMIN', 'LECTURER')")
     public ResponseEntity<?> list(
-            @RequestParam(required = false) String cohortCode,
-            @RequestParam(required = false) String specializationCode,
+            @RequestParam(required = false) String code,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String departmentCode,
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        List<CourseResponse> list = courseService.getAll(currentUser, cohortCode, specializationCode, title, departmentCode);
+        List<CourseResponse> list = courseService.getAll(currentUser, code, title, departmentCode);
         ApiResponse<List<CourseResponse>> api = ApiResponse.<List<CourseResponse>>builder()
                 .status(HttpStatus.OK.value())
                 .message("Success")

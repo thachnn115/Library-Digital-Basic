@@ -4,12 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -32,15 +31,13 @@ public class Specialization implements Serializable {
     @Column(name = "name", nullable = false, unique = true)
     private String name;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "department_id")
-    @NotFound(action = NotFoundAction.IGNORE)
-    private Department department;
-
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "program_id")
-    @NotFound(action = NotFoundAction.IGNORE)
-    private TrainingProgram program;
+    @ManyToMany
+    @JoinTable(
+            name = "specialization_programs",
+            joinColumns = @JoinColumn(name = "specialization_id"),
+            inverseJoinColumns = @JoinColumn(name = "program_id")
+    )
+    private Set<TrainingProgram> programs = new HashSet<>();
 
     @Column(name = "description")
     private String description;

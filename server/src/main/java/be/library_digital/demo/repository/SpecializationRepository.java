@@ -17,9 +17,9 @@ public interface SpecializationRepository extends JpaRepository<Specialization, 
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, String id);
 
-    List<Specialization> findByProgram_Id(String programId);
+    List<Specialization> findByPrograms_Id(String programId);
 
-    List<Specialization> findByProgram_CodeIgnoreCase(String programCode);
+    List<Specialization> findByPrograms_CodeIgnoreCase(String programCode);
 
     java.util.Optional<Specialization> findByCodeIgnoreCase(String code);
 }

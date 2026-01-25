@@ -20,10 +20,12 @@ export interface UserInfo {
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   dateOfBirth?: string | null;
   phone?: string | null;
-  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER';
+  address?: string | null;
+  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT';
   status: 'ACTIVE' | 'INACTIVE' | 'LOCK';
   avatarUrl?: string | null;
   department?: DepartmentInfo | null;
+  classroom?: ClassroomInfo | null;
   mustChangePassword?: boolean;
 }
 
@@ -32,6 +34,12 @@ export interface DepartmentInfo {
   code: string;
   name: string;
   description?: string | null;
+}
+
+export interface ClassroomInfo {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface ForgotPasswordRequest {

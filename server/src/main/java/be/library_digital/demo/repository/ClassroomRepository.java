@@ -13,6 +13,8 @@ public interface ClassroomRepository extends JpaRepository<Classroom, String> {
 
     boolean existsByCodeIgnoreCaseAndIdNot(String code, String id);
 
+    java.util.Optional<Classroom> findByCodeIgnoreCase(String code);
+
     List<Classroom> findBySpecialization_CodeIgnoreCase(String specializationCode);
 
     List<Classroom> findByCohort_CodeIgnoreCase(String cohortCode);

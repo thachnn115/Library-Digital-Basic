@@ -7,16 +7,17 @@ import be.library_digital.demo.exception.ForbiddenException;
 import be.library_digital.demo.exception.ResourceNotFoundException;
 import be.library_digital.demo.common.UserType;
 import be.library_digital.demo.model.Specialization;
-import be.library_digital.demo.model.TrainingProgram;
 import be.library_digital.demo.model.User;
+import be.library_digital.demo.model.TrainingProgram;
 import be.library_digital.demo.repository.SpecializationRepository;
 import be.library_digital.demo.repository.TrainingProgramRepository;
-import be.library_digital.demo.repository.DepartmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,13 +27,10 @@ public class SpecializationService {
 
     private final SpecializationRepository specializationRepository;
     private final TrainingProgramRepository trainingProgramRepository;
-    private final DepartmentRepository departmentRepository;
 
     public SpecializationResponse create(SpecializationRequest request) {
         String code = request.getCode().trim();
         String name = request.getName().trim();
-        String programCode = request.getProgramCode().trim();
-        String departmentCode = request.getDepartmentCode().trim();
 
         if (specializationRepository.existsByCodeIgnoreCase(code)) {
             throw new BadRequestException("Specialization code already exists");
@@ -41,18 +39,13 @@ public class SpecializationService {
             throw new BadRequestException("Specialization name already exists");
         }
 
-        TrainingProgram program = trainingProgramRepository.findByCodeIgnoreCase(programCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Training program not found"));
-
-        var department = departmentRepository.findByCodeIgnoreCase(departmentCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
+        Set<TrainingProgram> programs = resolvePrograms(request.getProgramCodes());
 
         Specialization specialization = Specialization.builder()
                 .code(code)
                 .name(name)
                 .description(request.getDescription())
-                .program(program)
-                .department(department)
+                .programs(programs)
                 .build();
 
         Specialization saved = specializationRepository.save(specialization);
@@ -66,8 +59,6 @@ public class SpecializationService {
 
         String code = request.getCode().trim();
         String name = request.getName().trim();
-        String programCode = request.getProgramCode().trim();
-        String departmentCode = request.getDepartmentCode().trim();
 
         if (specializationRepository.existsByCodeIgnoreCaseAndIdNot(code, id)) {
             throw new BadRequestException("Specialization code already exists");
@@ -76,17 +67,12 @@ public class SpecializationService {
             throw new BadRequestException("Specialization name already exists");
         }
 
-        TrainingProgram program = trainingProgramRepository.findByCodeIgnoreCase(programCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Training program not found"));
-
-        var department = departmentRepository.findByCodeIgnoreCase(departmentCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
+        Set<TrainingProgram> programs = resolvePrograms(request.getProgramCodes());
 
         specialization.setCode(code);
         specialization.setName(name);
         specialization.setDescription(request.getDescription());
-        specialization.setProgram(program);
-        specialization.setDepartment(department);
+        specialization.setPrograms(programs);
 
         Specialization saved = specializationRepository.save(specialization);
         log.info("Updated specialization id={}", saved.getId());
@@ -110,9 +96,8 @@ public class SpecializationService {
 
         return list.stream()
                 .filter(sp -> canView(currentUser, sp))
-                .filter(sp -> programIdFilter.isEmpty() || (sp.getProgram() != null && programIdFilter.equals(sp.getProgram().getId())))
-                .filter(sp -> programCodeFilter.isEmpty() || (sp.getProgram() != null && sp.getProgram().getCode() != null
-                        && sp.getProgram().getCode().equalsIgnoreCase(programCodeFilter)))
+                .filter(sp -> programIdFilter.isEmpty() || hasProgramId(sp, programIdFilter))
+                .filter(sp -> programCodeFilter.isEmpty() || hasProgramCode(sp, programCodeFilter))
                 .filter(sp -> codeFilter.isEmpty() || (sp.getCode() != null && sp.getCode().toLowerCase().contains(codeFilter)))
                 .filter(sp -> nameFilter.isEmpty() || (sp.getName() != null && sp.getName().toLowerCase().contains(nameFilter)))
                 .map(SpecializationResponse::fromSpecialization)
@@ -133,10 +118,7 @@ public class SpecializationService {
         if (UserType.ADMIN.equals(user.getType())) {
             return;
         }
-        if ((UserType.SUB_ADMIN.equals(user.getType()) || UserType.LECTURER.equals(user.getType()))
-                && user.getDepartment() != null
-                && sp != null && sp.getDepartment() != null
-                && user.getDepartment().getId().equals(sp.getDepartment().getId())) {
+        if (UserType.SUB_ADMIN.equals(user.getType()) || UserType.LECTURER.equals(user.getType())) {
             return;
         }
         throw new ForbiddenException("You don't have permission to view this specialization");
@@ -149,5 +131,47 @@ public class SpecializationService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private Set<TrainingProgram> resolvePrograms(List<String> programCodes) {
+        if (programCodes == null || programCodes.isEmpty()) {
+            throw new BadRequestException("programCodes must not be empty");
+        }
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String code : programCodes) {
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            normalized.add(code.trim());
+        }
+        if (normalized.isEmpty()) {
+            throw new BadRequestException("programCodes must not be empty");
+        }
+
+        Set<TrainingProgram> programs = new LinkedHashSet<>();
+        for (String code : normalized) {
+            TrainingProgram program = trainingProgramRepository.findByCodeIgnoreCase(code)
+                    .orElseThrow(() -> new ResourceNotFoundException("Training program not found: " + code));
+            programs.add(program);
+        }
+        return programs;
+    }
+
+    private boolean hasProgramId(Specialization specialization, String programId) {
+        if (specialization == null || specialization.getPrograms() == null) {
+            return false;
+        }
+        return specialization.getPrograms().stream()
+                .anyMatch(program -> program != null && programId.equals(program.getId()));
+    }
+
+    private boolean hasProgramCode(Specialization specialization, String programCode) {
+        if (specialization == null || specialization.getPrograms() == null) {
+            return false;
+        }
+        return specialization.getPrograms().stream()
+                .anyMatch(program -> program != null
+                        && program.getCode() != null
+                        && program.getCode().equalsIgnoreCase(programCode));
     }
 }

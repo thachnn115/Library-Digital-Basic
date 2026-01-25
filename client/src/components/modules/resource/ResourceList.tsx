@@ -44,14 +44,17 @@ export const ResourceList: React.FC<ResourceListProps> = ({
 		queryFn: () => courseApi.getAll({}),
 	});
 
-	// Create map of courseId -> courseTitle
-	const courseTitleMap = useMemo(() => {
-		const map = new Map<string, string>();
+	// Create map of courseId -> course info
+	const courseInfoMap = useMemo(() => {
+		const map = new Map<string, { title: string; code: string }>();
 		allCourses.forEach((course) => {
 			if (course.id) {
 				const courseId = course.id.toString();
-				const courseTitle = course.title || course.name || courseId;
-				map.set(courseId, courseTitle);
+				const courseTitle = course.code && course.title
+					? `${course.code} - ${course.title}`
+					: course.title || course.code || courseId;
+				const courseCode = course.code || courseId;
+				map.set(courseId, { title: courseTitle, code: courseCode });
 			}
 		});
 		return map;
@@ -60,18 +63,20 @@ export const ResourceList: React.FC<ResourceListProps> = ({
 	// Enrich resources with course title
 	const enrichedResources = useMemo(() => {
 		return resources.map((resource) => {
-			if (resource.courseId && courseTitleMap.has(resource.courseId)) {
+			if (resource.courseId && courseInfoMap.has(resource.courseId)) {
+				const courseInfo = courseInfoMap.get(resource.courseId);
 				return {
 					...resource,
 					course: {
 						id: resource.courseId,
-						title: courseTitleMap.get(resource.courseId) || '',
+						title: courseInfo?.title || resource.courseId,
+						code: courseInfo?.code || resource.courseId,
 					},
 				};
 			}
 			return resource;
 		});
-	}, [resources, courseTitleMap]);
+	}, [resources, courseInfoMap]);
 
 	if (loading) {
 		return (

@@ -16,7 +16,7 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
 
     List<Resource> findByCourseId(String courseId);
 
-    List<Resource> findByCourse_Classroom_Specialization_Department_Id(Long departmentId);
+    List<Resource> findByUploadedBy_Department_Id(Long departmentId);
 
     List<Resource> findByUploadedBy_Id(String userId);
 
@@ -34,7 +34,7 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
                    r.uploadedBy.department.name as departmentName,
                    count(r.id) as uploadCount
             from Resource r
-            where (:deptId is null or r.course.classroom.specialization.department.id = :deptId)
+            where (:deptId is null or r.uploadedBy.department.id = :deptId)
             group by r.uploadedBy.id, r.uploadedBy.email, r.uploadedBy.fullName,
                      r.uploadedBy.department.id, r.uploadedBy.department.name
             order by uploadCount desc
@@ -43,21 +43,21 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
 
     @Query("""
             select r from Resource r
-            where (:deptId is null or r.course.classroom.specialization.department.id = :deptId)
+            where (:deptId is null or r.uploadedBy.department.id = :deptId)
             order by r.views desc
             """)
     List<Resource> findTopByViews(@Param("deptId") Long deptId, Pageable pageable);
 
     @Query("""
             select r from Resource r
-            where (:deptId is null or r.course.classroom.specialization.department.id = :deptId)
+            where (:deptId is null or r.uploadedBy.department.id = :deptId)
             order by r.downloads desc
             """)
     List<Resource> findTopByDownloads(@Param("deptId") Long deptId, Pageable pageable);
 
     @Query("""
             select r from Resource r
-            where (:deptId is null or r.course.classroom.specialization.department.id = :deptId)
+            where (:deptId is null or r.uploadedBy.department.id = :deptId)
             order by r.createdAt desc
             """)
     List<Resource> findRecentUploads(@Param("deptId") Long deptId, Pageable pageable);

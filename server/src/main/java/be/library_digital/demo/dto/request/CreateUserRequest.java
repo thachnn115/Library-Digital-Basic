@@ -45,9 +45,14 @@ public class CreateUserRequest {
     @Size(max = 30)
     private String phone;
 
+    @Size(max = 255)
+    private String address;
+
     private UserType type;
 
     private UserStatus status;
 
     private Long departmentId;
+
+    private String classroomId;
 }

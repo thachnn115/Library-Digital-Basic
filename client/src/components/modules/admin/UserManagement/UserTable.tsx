@@ -106,6 +106,12 @@ export const UserTable: React.FC<UserTableProps> = ({
 			render: (_, record) => record.department?.name || "-",
 		},
 		{
+			title: <div className="text-center">Lop</div>,
+			key: "classroom",
+			width: 150,
+			render: (_, record) => record.classroom?.name || "-",
+		},
+		{
 			title: <div className="text-center">Vai trò</div>,
 			key: "role",
 			width: 120,
@@ -114,14 +120,14 @@ export const UserTable: React.FC<UserTableProps> = ({
 				return (
 					<Tag
 						color={
-							role === "ADMIN" ? "red" : role === "SUB_ADMIN" ? "blue" : "green"
+							role === "ADMIN" ? "red" : role === "SUB_ADMIN" ? "blue" : role === "STUDENT" ? "gold" : "green"
 						}
 					>
 						{role === "ADMIN"
 							? "Quản trị viên"
 							: role === "SUB_ADMIN"
 							? "Quản trị khoa"
-							: "Giảng viên"}
+							: role === "STUDENT" ? "Hoc vien" : "Giảng viên"}
 					</Tag>
 				);
 			},

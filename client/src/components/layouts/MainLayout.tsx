@@ -36,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 		useState(false);
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { user, logout, isAdmin, isSubAdmin, isLecturer, isAuthenticated } =
+	const { user, isAdmin, isSubAdmin, isLecturer, isAuthenticated } =
 		useAuth();
 
 	// Calculate if password reminder should be shown (derived state)

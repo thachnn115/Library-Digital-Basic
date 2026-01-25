@@ -14,8 +14,8 @@ interface AuthActions {
   logout: () => void;
   updateUser: (user: Partial<UserInfo>) => void;
   setLoading: (isLoading: boolean) => void;
-  hasRole: (role: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER') => boolean;
-  hasAnyRole: (roles: ('ADMIN' | 'SUB_ADMIN' | 'LECTURER')[]) => boolean;
+  hasRole: (role: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT') => boolean;
+  hasAnyRole: (roles: ('ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT')[]) => boolean;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -78,8 +78,8 @@ export const useAuthStore = create<AuthStore>()(
       hasAnyRole: (roles) => {
         const user = get().user;
         if (!user) return false;
-        return roles.includes(user.role as 'ADMIN' | 'SUB_ADMIN' | 'LECTURER') || 
-               roles.includes(user.type);
+        return roles.includes(user.role as 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT') ||
+          roles.includes(user.type);
       },
     }),
     {

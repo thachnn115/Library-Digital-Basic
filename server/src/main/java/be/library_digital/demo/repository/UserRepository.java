@@ -18,6 +18,10 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     Optional<User> findByPasswordResetToken(String passwordResetToken);
 
+    boolean existsByUserIdentifier(String userIdentifier);
+
+    Optional<User> findTopByUserIdentifierStartingWithOrderByUserIdentifierDesc(String prefix);
+
     @Query(value = "SELECT u FROM User u WHERE u.status='ACTIVE' " +
             "AND LOWER(u.email) = :username")
     Optional<User> loadUserByUsername(String username);

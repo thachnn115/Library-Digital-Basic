@@ -4,6 +4,7 @@ export interface Resource {
   title: string;
   description?: string;
   courseId?: string;
+  course?: Course;
   type?: ResourceType;
   fileUrl?: string;
   sizeBytes?: number;
@@ -24,7 +25,7 @@ export interface ResourceStats {
 export interface CommentResponse {
   id: string;
   content: string;
-  resourceId?: string;
+  resourceId: string;
   author?: PublicUser;
   createdAt: string;
   updatedAt: string;
@@ -83,7 +84,9 @@ export interface Specialization {
   name: string;
   code: string;
   description?: string;
+  programs?: TrainingProgram[];
   trainingProgram?: TrainingProgram;
+  program?: TrainingProgram;
 }
 
 export interface Cohort {
@@ -95,11 +98,10 @@ export interface Cohort {
 }
 
 export interface Course {
-  id: number;
-  name: string;
+  id: number | string;
   code: string;
-  credits?: number;
-  description?: string;
+  title: string;
+  department?: DepartmentResponse;
 }
 
 export interface ResourceSearchParams {

@@ -23,9 +23,10 @@ export interface Specialization {
   name: string;
   code: string;
   description?: string;
+  programs?: TrainingProgram[];
   trainingProgram?: TrainingProgram;
-  program?: TrainingProgram; // Backend may return 'program'
-  department?: Department; // Backend returns department
+  program?: TrainingProgram; // Legacy support (derived from programs)
+  department?: Department; // Legacy support
   createdAt: string;
   updatedAt: string;
 }
@@ -56,18 +57,15 @@ export interface Classroom {
 
 export interface Course {
   id: number | string;
-  title?: string; // Backend returns 'title'
-  name?: string; // Legacy support
-  code?: string; // Legacy support
-  credits?: number;
-  description?: string;
+  code: string;
+  title: string;
   department?: Department;
-  classroom?: Classroom; // Backend returns classroom
+  classroom?: Classroom;
   instructor?: {
     id: string;
     fullName: string;
     email: string;
-  }; // Backend returns instructor as PublicUser
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -97,8 +95,7 @@ export interface CreateSpecializationRequest {
   name: string;
   code: string;
   description?: string;
-  programCode: string;
-  departmentCode: string;
+  programCodes: string[];
 }
 
 export interface CreateCohortRequest {
@@ -118,10 +115,9 @@ export interface CreateClassroomRequest {
 }
 
 export interface CreateCourseRequest {
+  code: string;
   title: string;
-  description?: string;
-  classroomId: string;
-  instructorId?: string;
+  departmentCode: string;
 }
 
 export interface CreateResourceTypeRequest {

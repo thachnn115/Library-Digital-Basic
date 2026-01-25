@@ -6,6 +6,17 @@ import type { ApiResponse } from '@/types/api.types';
 import { API_ENDPOINTS } from '@/constants/api-endpoints';
 import apiClient from './client';
 
+const normalizeSpecialization = (spec: Specialization): Specialization => {
+	const programs = spec.programs ?? [];
+	const primaryProgram = spec.program || spec.trainingProgram || programs[0];
+	return {
+		...spec,
+		programs,
+		program: primaryProgram,
+		trainingProgram: spec.trainingProgram || primaryProgram,
+	};
+};
+
 /**
  * Specialization API Service
  */
@@ -27,7 +38,7 @@ export const specializationApi = {
 			API_ENDPOINTS.SPECIALIZATION.BASE,
 			{ params }
 		);
-		return response.data.data;
+		return response.data.data.map(normalizeSpecialization);
 	},
 
 	/**
@@ -37,18 +48,22 @@ export const specializationApi = {
 		const response = await apiClient.get<ApiResponse<Specialization>>(
 			API_ENDPOINTS.SPECIALIZATION.BY_ID(id)
 		);
-		return response.data.data;
+		return normalizeSpecialization(response.data.data);
 	},
 
 	/**
 	 * Create new specialization
 	 */
 	create: async (data: CreateSpecializationRequest): Promise<Specialization> => {
+		const payload = {
+			...data,
+			programCodes: data.programCodes || [],
+		};
 		const response = await apiClient.post<ApiResponse<Specialization>>(
 			API_ENDPOINTS.SPECIALIZATION.CREATE,
-			data
+			payload
 		);
-		return response.data.data;
+		return normalizeSpecialization(response.data.data);
 	},
 
 	/**
@@ -58,11 +73,15 @@ export const specializationApi = {
 		id: string | number,
 		data: CreateSpecializationRequest
 	): Promise<Specialization> => {
+		const payload = {
+			...data,
+			programCodes: data.programCodes || [],
+		};
 		const response = await apiClient.put<ApiResponse<Specialization>>(
 			API_ENDPOINTS.SPECIALIZATION.UPDATE(id),
-			data
+			payload
 		);
-		return response.data.data;
+		return normalizeSpecialization(response.data.data);
 	},
 
 	/**

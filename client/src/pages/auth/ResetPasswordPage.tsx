@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Button, Input, Form, Card, message } from "antd";
+import { Button, Input, Form, Card } from "antd";
 import { LockOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { authApi } from "@/api/auth.api";
 import { z } from "zod";

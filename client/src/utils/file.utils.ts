@@ -11,16 +11,11 @@ export const isValidFileSize = (file: File): boolean => {
 	return file.size <= APP_CONFIG.MAX_FILE_SIZE;
 };
 
-// Check if file is a Word or PowerPoint file (not allowed, must convert to PDF)
-export const isWordOrPowerPointFile = (file: File): boolean => {
-	const fileName = file.name.toLowerCase();
-	const fileExtension = getFileExtension(fileName).toLowerCase();
-	return (
-		fileExtension === ".doc" ||
-		fileExtension === ".docx" ||
-		fileExtension === ".ppt" ||
-		fileExtension === ".pptx"
-	);
+// Check if file is a Word or PowerPoint file (now allowed)
+export const isWordOrPowerPointFile = (_: File): boolean => {
+	// Previously checked for .doc, .docx, .ppt, .pptx to block them.
+	// Now we allow them, so we return false to indicate "not a blocked file type"
+	return false;
 };
 
 export const validateFile = (
@@ -30,13 +25,12 @@ export const validateFile = (
 	if (!isValidFileSize(file)) {
 		return {
 			valid: false,
-			error: `Kích thước file vượt quá ${
-				APP_CONFIG.MAX_FILE_SIZE / (1024 * 1024)
-			}MB`,
+			error: `Kích thước file vượt quá ${APP_CONFIG.MAX_FILE_SIZE / (1024 * 1024)
+				}MB`,
 		};
 	}
 
-	// Check if file is Word or PowerPoint (not allowed)
+	// Check if file is Word or PowerPoint (now allowed, so this block won't trigger if isWordOrPowerPointFile returns false)
 	if (isWordOrPowerPointFile(file)) {
 		return {
 			valid: false,

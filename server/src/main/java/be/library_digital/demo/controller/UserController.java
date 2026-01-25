@@ -13,7 +13,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -121,7 +123,7 @@ public class UserController {
         return ResponseEntity.ok(api);
     }
 
-    @Operation(summary = "Admin import users from Excel", description = "ADMIN only. Columns: email, password, userIdentifier, gender, fullName, userType, departmentName")
+    @Operation(summary = "Admin import users from Excel", description = "ADMIN only. Columns: email, password, gender, fullName, userType, departmentCode (userIdentifier auto-generated)")
     @PostMapping("/import")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<?> importUsers(@RequestPart("file") MultipartFile file, Authentication authentication) {
@@ -135,6 +137,18 @@ public class UserController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.CREATED).body(api);
+    }
+
+    @Operation(summary = "Download user import template", description = "ADMIN only. Columns: email, password, gender, fullName, userType, departmentCode")
+    @GetMapping("/import-template")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<byte[]> downloadImportTemplate() {
+        byte[] data = userManagementService.generateUserImportTemplate();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"user-import-template.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(data.length)
+                .body(data);
     }
 
     @Operation(summary = "Update user avatar", description = "ADMIN can update any user; SUB_ADMIN same department; users can update their own avatar")

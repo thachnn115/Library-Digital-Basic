@@ -21,7 +21,6 @@ const SubAdminUserManagementPage: React.FC = () => {
 	const departmentId = user?.department?.id;
 
 	const [searchKeyword, setSearchKeyword] = useState('');
-	const [roleFilter, setRoleFilter] = useState<number | undefined>();
 	const [statusFilter, setStatusFilter] = useState<string | undefined>();
 	const [createModalOpen, setCreateModalOpen] = useState(false);
 	const [editModalOpen, setEditModalOpen] = useState(false);
@@ -122,7 +121,7 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	// Update user mutation
 	const updateMutation = useMutation({
-		mutationFn: ({ id, data }: { id: number; data: UpdateUserRequest }) =>
+		mutationFn: ({ id, data }: { id: string | number; data: UpdateUserRequest }) =>
 			userApi.update(id, data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -137,10 +136,9 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	// Delete user mutation
 	const deleteMutation = useMutation({
-		mutationFn: (id: number) => userApi.delete(id),
+		mutationFn: (id: string | number) => userApi.delete(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
-			setDeleteConfirmOpen(false);
 			setSelectedUser(null);
 			toast.success('Xóa giảng viên thành công!');
 		},
@@ -151,7 +149,7 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	// Reset password mutation
 	const resetPasswordMutation = useMutation({
-		mutationFn: ({ id, newPassword }: { id: number; newPassword: string }) =>
+		mutationFn: ({ id, newPassword }: { id: string | number; newPassword: string }) =>
 			userApi.resetPassword(id, newPassword),
 		onSuccess: () => {
 			setResetPasswordModalOpen(false);
@@ -178,11 +176,11 @@ const SubAdminUserManagementPage: React.FC = () => {
 		setEditModalOpen(true);
 	};
 
-	const handleUpdate = async (id: number, data: UpdateUserRequest) => {
+	const handleUpdate = async (id: string | number, data: UpdateUserRequest) => {
 		// Ensure department stays the same
 		const updateData: UpdateUserRequest = {
 			...data,
-			departmentId: departmentId,
+			departmentId: departmentId != null ? Number(departmentId) : undefined,
 		};
 		await updateMutation.mutateAsync({ id, data: updateData });
 	};
@@ -204,7 +202,6 @@ const SubAdminUserManagementPage: React.FC = () => {
 
 	const handleClearFilters = () => {
 		setSearchKeyword('');
-		setRoleFilter(undefined);
 		setStatusFilter(undefined);
 	};
 

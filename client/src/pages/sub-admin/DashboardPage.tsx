@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 const SubAdminDashboardPage: React.FC = () => {
 	const { user } = useAuth();
 	const departmentId = user?.department?.id;
+	const departmentCode = user?.department?.code;
 
 	// Fetch users in department
 	const { data: usersData } = useQuery({
@@ -25,9 +26,9 @@ const SubAdminDashboardPage: React.FC = () => {
 
 	// Fetch courses in department
 	const { data: courses = [] } = useQuery({
-		queryKey: ['courses', 'department', departmentId],
-		queryFn: () => courseApi.getAll(departmentId),
-		enabled: !!departmentId,
+		queryKey: ['courses', 'department', departmentCode],
+		queryFn: () => courseApi.getAll({ departmentCode }),
+		enabled: !!departmentCode,
 	});
 
 	// Count only LECTURER users (exclude SUB_ADMIN and ADMIN)

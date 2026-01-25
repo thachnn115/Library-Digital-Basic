@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { historyApi } from '@/api/history.api';
 import { resourceApi } from '@/api/resource.api';
 import { ResourceList } from '@/components/modules/resource/ResourceList';
-import type { History } from '@/types/history.types';
 import type { Resource } from '@/types/resource.types';
 import { toast } from 'sonner';
 

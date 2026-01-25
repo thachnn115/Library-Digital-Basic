@@ -41,7 +41,8 @@ public class InitService {
         List<Role> defaultRoles = Arrays.asList(
                 Role.builder().name("ADMIN").description("Administrator").build(),
                 Role.builder().name("SUB_ADMIN").description("Quản trị viên phụ trách khoa/bộ phận").build(),
-                Role.builder().name("LECTURER").description("Giảng viên").build()
+                Role.builder().name("LECTURER").description("Giảng viên").build(),
+                Role.builder().name("STUDENT").description("Hoc vien").build()
         );
 
         for (Role role : defaultRoles){

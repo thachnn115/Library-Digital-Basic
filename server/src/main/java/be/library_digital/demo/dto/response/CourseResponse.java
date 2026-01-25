@@ -13,25 +13,22 @@ import java.time.LocalDateTime;
 @Builder
 public class CourseResponse implements Serializable {
     private String id;
+    private String code;
     private String title;
-    private String description;
-    private ClassroomResponse classroom;
-    private PublicUser instructor;
+    private DepartmentResponse department;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static CourseResponse fromCourse(Course course) {
         if (course == null) return null;
 
-        ClassroomResponse classroom = ClassroomResponse.fromClassroom(course.getClassroom());
-        PublicUser instr = PublicUser.fromUser(course.getInstructor());
+        DepartmentResponse dept = DepartmentResponse.fromDepartment(course.getDepartment());
 
         return CourseResponse.builder()
                 .id(course.getId())
+                .code(course.getCode())
                 .title(course.getTitle())
-                .description(course.getDescription())
-                .classroom(classroom)
-                .instructor(instr)
+                .department(dept)
                 .createdAt(course.getCreatedAt())
                 .updatedAt(course.getUpdatedAt())
                 .build();

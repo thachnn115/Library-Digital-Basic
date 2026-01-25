@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, Button, Space, Tabs, Spin, message, Popconfirm } from "antd";
 import {
@@ -16,7 +16,6 @@ import { ResourceViewer } from "@/components/modules/resource/ResourceViewer";
 import { ResourceComments } from "@/components/modules/resource/ResourceComments";
 import { ResourceRating } from "@/components/modules/resource/ResourceRating";
 import { useAuth } from "@/hooks/useAuth";
-import type { Resource } from "@/types/resource.types";
 import { downloadFile } from "@/utils/file.utils";
 import { formatFileSize } from "@/utils/format.utils";
 import { toast } from "sonner";
@@ -187,7 +186,9 @@ const ResourceDetailPage: React.FC = () => {
 					<div className="grid grid-cols-2 gap-4 text-sm">
 						<div>
 							<span className="font-semibold">Học phần: </span>
-							{course?.title || course?.name || resource.courseId || "-"}
+							{course?.code && course?.title
+								? `${course.code} - ${course.title}`
+								: course?.title || course?.code || resource.courseId || "-"}
 						</div>
 						<div>
 							<span className="font-semibold">Loại học liệu: </span>

@@ -24,7 +24,6 @@ import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { specializationApi } from "@/api/specialization.api";
 import { trainingProgramApi } from "@/api/training-program.api";
-import { departmentApi } from "@/api/department.api";
 import type {
 	Specialization,
 	CreateSpecializationRequest,
@@ -34,8 +33,9 @@ const specializationSchema = z.object({
 	name: z.string().min(1, "Tên chuyên ngành không được để trống"),
 	code: z.string().min(1, "Mã chuyên ngành không được để trống"),
 	description: z.string().optional(),
-	programCode: z.string().min(1, "Phải chọn chương trình đào tạo"),
-	departmentCode: z.string().min(1, "Phải chọn khoa"),
+	programCodes: z
+			.array(z.string().min(1, "Phải chọn Chương Trình Đào Tạo"))
+			.min(1, "Phải chọn Chương Trình Đào Tạo"),
 });
 
 /**
@@ -55,30 +55,17 @@ export const SpecializationManager: React.FC = () => {
 		queryFn: () => trainingProgramApi.getAll(),
 	});
 
-	const { data: departments = [] } = useQuery({
-		queryKey: ["departments"],
-		queryFn: () => departmentApi.getAll(),
-	});
-
 	const [filterProgramCode, setFilterProgramCode] = useState<string>("");
-	const [filterDepartmentCode, setFilterDepartmentCode] = useState<string>("");
 
 	const { data: specializations = [], isLoading } = useQuery({
-		queryKey: ["specializations", filterProgramCode, filterDepartmentCode],
+		queryKey: ["specializations", filterProgramCode],
 		queryFn: () =>
 			specializationApi.getAll({
 				programCode: filterProgramCode || undefined,
-				// Note: Backend doesn't support departmentCode filter directly,
-				// but we can filter on frontend
 			}),
 	});
 
-	// Filter by department on frontend if needed
-	const filteredSpecializations = filterDepartmentCode
-		? specializations.filter(
-				(spec) => spec.department?.code === filterDepartmentCode
-		  )
-		: specializations;
+	const filteredSpecializations = specializations;
 
 	const {
 		control,
@@ -148,8 +135,13 @@ export const SpecializationManager: React.FC = () => {
 				name: detail.name,
 				code: detail.code,
 				description: detail.description || "",
-				programCode: detail.program?.code || detail.trainingProgram?.code || "",
-				departmentCode: detail.department?.code || "",
+				programCodes:
+					detail.programs?.map((program) => program.code) ||
+					(detail.program?.code
+						? [detail.program.code]
+						: detail.trainingProgram?.code
+							? [detail.trainingProgram.code]
+							: []),
 			});
 			setEditModalOpen(true);
 		} catch {
@@ -195,15 +187,16 @@ export const SpecializationManager: React.FC = () => {
 			key: "name",
 		},
 		{
-			title: "Khoa",
-			key: "department",
-			render: (_, record) => record.department?.name || "-",
-		},
-		{
 			title: "Chương trình đào tạo",
 			key: "trainingProgram",
-			render: (_, record) =>
-				record.program?.name || record.trainingProgram?.name || "-",
+			render: (_, record) => {
+			const programNames =
+				record.programs?.map((program) => program.name).filter(Boolean) || [];
+			if (programNames.length > 0) {
+				return programNames.join(", ");
+			}
+			return record.program?.name || record.trainingProgram?.name || "-";
+		},
 		},
 		{
 			title: "Mô tả",
@@ -264,7 +257,7 @@ export const SpecializationManager: React.FC = () => {
 			{/* Filter Section */}
 			<div className="flex gap-4 mb-4">
 				<Select
-					placeholder="Lọc theo Chương trình Đào tạo"
+					placeholder="Lọc theo Chương Trình Đào Tạo"
 					value={filterProgramCode || undefined}
 					onChange={(value) => setFilterProgramCode(value || "")}
 					allowClear
@@ -278,22 +271,8 @@ export const SpecializationManager: React.FC = () => {
 					}))}
 					style={{ width: 250 }}
 				/>
-				<Select
-					placeholder="Lọc theo Khoa"
-					value={filterDepartmentCode || undefined}
-					onChange={(value) => setFilterDepartmentCode(value || "")}
-					allowClear
-					showSearch
-					filterOption={(input, option) =>
-						(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-					}
-					options={departments.map((dept) => ({
-						label: `${dept.code} - ${dept.name}`,
-						value: dept.code,
-					}))}
-					style={{ width: 250 }}
-				/>
 			</div>
+
 
 			<Table
 				columns={columns}
@@ -322,108 +301,79 @@ export const SpecializationManager: React.FC = () => {
 				width={600}
 			>
 				<Form layout="vertical">
-					<Form.Item
-						label="Mã chuyên ngành"
-						validateStatus={errors.code ? "error" : ""}
-						help={errors.code?.message}
-					>
-						<Controller
-							name="code"
-							control={control}
-							render={({ field }) => (
-								<Input {...field} placeholder="Nhập mã chuyên ngành" />
-							)}
-						/>
-					</Form.Item>
+				<Form.Item
+					label="Mã chuyên ngành"
+					validateStatus={errors.code ? "error" : ""}
+					help={errors.code?.message}
+				>
+					<Controller
+						name="code"
+						control={control}
+						render={({ field }) => (
+							<Input {...field} placeholder="Nhập mã chuyên ngành" />
+						)}
+					/>
+				</Form.Item>
 
-					<Form.Item
-						label="Tên chuyên ngành"
-						validateStatus={errors.name ? "error" : ""}
-						help={errors.name?.message}
-					>
-						<Controller
-							name="name"
-							control={control}
-							render={({ field }) => (
-								<Input {...field} placeholder="Nhập tên chuyên ngành" />
-							)}
-						/>
-					</Form.Item>
+				<Form.Item
+					label="Tên chuyên ngành"
+					validateStatus={errors.name ? "error" : ""}
+					help={errors.name?.message}
+				>
+					<Controller
+						name="name"
+						control={control}
+						render={({ field }) => (
+							<Input {...field} placeholder="Nhập tên chuyên nhành" />
+						)}
+					/>
+				</Form.Item>
 
-					<Form.Item
-						label="Chương trình đào tạo"
-						validateStatus={errors.programCode ? "error" : ""}
-						help={errors.programCode?.message}
-						required
-					>
-						<Controller
-							name="programCode"
-							control={control}
-							render={({ field }) => (
-								<Select
-									{...field}
-									placeholder="Chọn chương trình đào tạo"
-									showSearch
-									filterOption={(input, option) =>
-										(option?.label ?? "")
-											.toLowerCase()
-											.includes(input.toLowerCase())
-									}
-									options={programs.map((program) => ({
-										label: `${program.code} - ${program.name}`,
-										value: program.code,
-									}))}
-								/>
-							)}
-						/>
-					</Form.Item>
+				<Form.Item
+					label="Chương Trình Đào Tạo"
+					validateStatus={errors.programCodes ? "error" : ""}
+					help={errors.programCodes?.message}
+					required
+				>
+					<Controller
+						name="programCodes"
+						control={control}
+						render={({ field }) => (
+							<Select
+								{...field}
+								placeholder="Chọn Chương Trình Đào Tạo"
+								mode="multiple"
+								showSearch
+								filterOption={(input, option) =>
+									(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+								}
+								options={programs.map((program) => ({
+									label: `${program.code} - ${program.name}`,
+									value: program.code,
+								}))}
+							/>
+						)}
+					/>
+				</Form.Item>
 
-					<Form.Item
-						label="Khoa"
-						validateStatus={errors.departmentCode ? "error" : ""}
-						help={errors.departmentCode?.message}
-						required
-					>
-						<Controller
-							name="departmentCode"
-							control={control}
-							render={({ field }) => (
-								<Select
-									{...field}
-									placeholder="Chọn khoa"
-									showSearch
-									filterOption={(input, option) =>
-										(option?.label ?? "")
-											.toLowerCase()
-											.includes(input.toLowerCase())
-									}
-									options={departments.map((dept) => ({
-										label: `${dept.code} - ${dept.name}`,
-										value: dept.code,
-									}))}
-								/>
-							)}
-						/>
-					</Form.Item>
-
-					<Form.Item
-						label="Mô tả"
-						validateStatus={errors.description ? "error" : ""}
-						help={errors.description?.message}
-					>
-						<Controller
-							name="description"
-							control={control}
-							render={({ field }) => (
-								<Input.TextArea
-									{...field}
-									rows={3}
-									placeholder="Nhập mô tả (tùy chọn)"
-								/>
-							)}
-						/>
-					</Form.Item>
-				</Form>
+				<Form.Item
+					label="Mô tả"
+					validateStatus={errors.description ? "error" : ""}
+					help={errors.description?.message}
+				>
+					<Controller
+						name="description"
+						control={control}
+						render={({ field }) => (
+							<Input.TextArea
+								{...field}
+								rows={3}
+								placeholder="Nhập mô tả"
+							/>
+						)}
+					/>
+				</Form.Item>
+			</Form>
 			</Modal>
 
 			<Modal
@@ -462,16 +412,13 @@ export const SpecializationManager: React.FC = () => {
 						<Descriptions.Item label="Tên chuyên ngành">
 							{selectedSpecialization.name}
 						</Descriptions.Item>
-						<Descriptions.Item label="Chương trình đào tạo">
-							{selectedSpecialization.trainingProgram?.name || "-"}
-						</Descriptions.Item>
-						<Descriptions.Item label="Khoa">
-							{selectedSpecialization.department?.name || "-"}
-						</Descriptions.Item>
-						<Descriptions.Item label="Chương trình đào tạo">
-							{selectedSpecialization.program?.name ||
-								selectedSpecialization.trainingProgram?.name ||
-								"-"}
+						<Descriptions.Item label="Chương Trình Đào Tạo">
+							{selectedSpecialization.programs && selectedSpecialization.programs.length > 0
+								? selectedSpecialization.programs
+										.map((program) => program.name)
+										.filter(Boolean)
+										.join(", ")
+								: selectedSpecialization.program?.name || selectedSpecialization.trainingProgram?.name || "-"}
 						</Descriptions.Item>
 						<Descriptions.Item label="Mô tả">
 							{selectedSpecialization.description || "-"}

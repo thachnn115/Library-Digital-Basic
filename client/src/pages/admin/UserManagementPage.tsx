@@ -9,6 +9,7 @@ import { UserCreateModal } from "@/components/modules/admin/UserManagement/UserC
 import { UserEditModal } from "@/components/modules/admin/UserManagement/UserEditModal";
 import { UserResetPasswordModal } from "@/components/modules/admin/UserManagement/UserResetPasswordModal";
 import { UserImportModal } from "@/components/modules/admin/UserManagement/UserImportModal";
+import { StudentImportModal } from "@/components/modules/admin/UserManagement/StudentImportModal";
 import { userApi } from "@/api/user.api";
 import { departmentApi } from "@/api/department.api";
 import type {
@@ -30,6 +31,7 @@ const UserManagementPage: React.FC = () => {
 	const [statusFilter, setStatusFilter] = useState<string | undefined>();
 	const [createModalOpen, setCreateModalOpen] = useState(false);
 	const [importModalOpen, setImportModalOpen] = useState(false);
+	const [studentImportModalOpen, setStudentImportModalOpen] = useState(false);
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -81,12 +83,13 @@ const UserManagementPage: React.FC = () => {
 			);
 		}
 
-		// Filter by role (1=ADMIN, 2=SUB_ADMIN, 3=LECTURER)
+		// Filter by role (1=ADMIN, 2=SUB_ADMIN, 3=LECTURER, 4=STUDENT)
 		if (roleFilter) {
 			const roleMap: Record<number, string> = {
 				1: "ADMIN",
 				2: "SUB_ADMIN",
 				3: "LECTURER",
+				4: "STUDENT",
 			};
 			const targetRole = roleMap[roleFilter];
 			if (targetRole) {
@@ -260,15 +263,21 @@ const UserManagementPage: React.FC = () => {
 						icon={<UploadOutlined />}
 						onClick={() => setImportModalOpen(true)}
 					>
-						Import từ Excel
+						Tải danh sách giảng viên
 					</Button>
-				<Button
-					type="primary"
-					icon={<PlusOutlined />}
-					onClick={() => setCreateModalOpen(true)}
-				>
-					Thêm người dùng
-				</Button>
+					<Button
+						icon={<UploadOutlined />}
+						onClick={() => setStudentImportModalOpen(true)}
+					>
+						Tải lên danh sách học viên
+					</Button>
+					<Button
+						type="primary"
+						icon={<PlusOutlined />}
+						onClick={() => setCreateModalOpen(true)}
+					>
+						Thêm người dùng
+					</Button>
 				</Space>
 			</div>
 
@@ -306,6 +315,7 @@ const UserManagementPage: React.FC = () => {
 								{ label: "Quản trị viên", value: 1 },
 								{ label: "Quản trị khoa", value: 2 },
 								{ label: "Giảng viên", value: 3 },
+										{ label: "Hoc vien", value: 4 },
 							]}
 						/>
 
@@ -368,6 +378,14 @@ const UserManagementPage: React.FC = () => {
 			<UserImportModal
 				open={importModalOpen}
 				onCancel={() => setImportModalOpen(false)}
+				onSuccess={() => {
+					// User list will be refreshed automatically via query invalidation
+				}}
+			/>
+
+			<StudentImportModal
+				open={studentImportModalOpen}
+				onCancel={() => setStudentImportModalOpen(false)}
 				onSuccess={() => {
 					// User list will be refreshed automatically via query invalidation
 				}}

@@ -11,10 +11,12 @@ import be.library_digital.demo.dto.response.PublicUser;
 import be.library_digital.demo.exception.BadRequestException;
 import be.library_digital.demo.exception.ForbiddenException;
 import be.library_digital.demo.exception.ResourceNotFoundException;
+import be.library_digital.demo.model.Classroom;
 import be.library_digital.demo.model.Department;
 import be.library_digital.demo.model.Role;
 import be.library_digital.demo.model.User;
 import be.library_digital.demo.model.UserHasRole;
+import be.library_digital.demo.repository.ClassroomRepository;
 import be.library_digital.demo.repository.DepartmentRepository;
 import be.library_digital.demo.repository.RoleRepository;
 import be.library_digital.demo.repository.UserHasRoleRepository;
@@ -32,6 +34,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -39,10 +42,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -52,6 +57,7 @@ public class UserManagementService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DepartmentRepository departmentRepository;
+    private final ClassroomRepository classroomRepository;
     private final RoleRepository roleRepository;
     private final UserHasRoleRepository userHasRoleRepository;
 
@@ -82,9 +88,13 @@ public class UserManagementService {
             throw new ForbiddenException("Cannot create additional ADMIN accounts");
         }
         Department dept = null;
+        Classroom classroom = null;
 
         if (isSubAdmin) {
             // SUB_ADMIN: only create LECTURER in their own department
+            if (UserType.STUDENT.equals(type)) {
+                throw new ForbiddenException("SUB_ADMIN cannot create STUDENT users");
+            }
             if (!UserType.LECTURER.equals(type)) {
                 type = UserType.LECTURER; // force to lecturer
             }
@@ -108,17 +118,45 @@ public class UserManagementService {
             }
         }
 
+        if (UserType.STUDENT.equals(type)) {
+            String classroomId = request.getClassroomId();
+            if (classroomId == null || classroomId.trim().isEmpty()) {
+                throw new BadRequestException("Classroom is required for STUDENT");
+            }
+            classroom = classroomRepository.findById(classroomId.trim())
+                    .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
+        }
+
         User user = new User();
         user.setEmail(request.getEmail().toLowerCase());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setGender(request.getGender());
-        user.setUserIdentifier(request.getUserIdentifier());
+        String userIdentifier = request.getUserIdentifier();
+        if (userIdentifier != null) {
+            userIdentifier = userIdentifier.trim();
+        }
+        if (userIdentifier == null || userIdentifier.isEmpty()) {
+            if (UserType.STUDENT.equals(type)) {
+                Integer startYear = classroom != null && classroom.getCohort() != null
+                        ? classroom.getCohort().getStartYear()
+                        : null;
+                if (startYear == null) {
+                    throw new BadRequestException("Classroom cohort start year is required for STUDENT identifier");
+                }
+                userIdentifier = generateStudentIdentifier(startYear, null);
+            } else {
+                userIdentifier = generateUserIdentifier(type, dept, new HashMap<>());
+            }
+        }
+        user.setUserIdentifier(userIdentifier);
         user.setDateOfBirth(request.getDateOfBirth());
         user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
         user.setType(type);
         user.setStatus(request.getStatus() != null ? request.getStatus() : UserStatus.ACTIVE);
         user.setDepartment(dept);
+        user.setClassroom(classroom);
         user.setMustChangePassword(true);
         user.setFailedLoginAttempts(0);
         user.setLastFailedLoginDate(null);
@@ -315,6 +353,19 @@ public class UserManagementService {
             throw new BadRequestException("File must not be empty");
         }
 
+        Role adminRole = roleRepository.findByName("ADMIN")
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: ADMIN"));
+        Role subAdminRole = roleRepository.findByName("SUB_ADMIN")
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: SUB_ADMIN"));
+        Role lecturerRole = roleRepository.findByName("LECTURER")
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: LECTURER"));
+
+        Map<UserType, Role> roleByType = new HashMap<>();
+        roleByType.put(UserType.ADMIN, adminRole);
+        roleByType.put(UserType.SUB_ADMIN, subAdminRole);
+        roleByType.put(UserType.LECTURER, lecturerRole);
+
+        Map<String, Integer> prefixCounters = new HashMap<>();
         List<User> toSave = new ArrayList<>();
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
@@ -330,36 +381,59 @@ public class UserManagementService {
                 }
                 String email = getStringCell(row, 0);
                 String rawPassword = getStringCell(row, 1);
-                String userIdentifier = getStringCell(row, 2);
-                String genderStr = getStringCell(row, 3);
-                String fullName = getStringCell(row, 4);
-                String userTypeStr = getStringCell(row, 5);
-                String departmentName = getStringCell(row, 6);
+                String genderStr = getStringCell(row, 2);
+                String fullName = getStringCell(row, 3);
+                String userTypeStr = getStringCell(row, 4);
+                String departmentCode = getStringCell(row, 5);
 
-                if (email == null || rawPassword == null || userTypeStr == null) {
+                if (email == null || email.isEmpty() || rawPassword == null || rawPassword.isEmpty() ||
+                        userTypeStr == null || userTypeStr.isEmpty()) {
                     log.warn("Skipping row {} due to missing required fields", row.getRowNum());
                     continue;
                 }
 
-                if (userRepository.existsByEmail(email)) {
+                String emailLower = email.toLowerCase();
+                if (userRepository.existsByEmail(emailLower)) {
                     log.warn("Skipping existing user with email {}", email);
                     continue;
                 }
 
+                UserType userType = parseUserType(userTypeStr);
+                Department department = null;
+                if (departmentCode != null && !departmentCode.isEmpty()) {
+                    department = departmentRepository.findByCodeIgnoreCase(departmentCode)
+                            .orElse(null);
+                    if (department == null) {
+                        log.warn("Skipping row {} due to missing department with code {}", row.getRowNum(), departmentCode);
+                        continue;
+                    }
+                }
+
+                if ((UserType.SUB_ADMIN.equals(userType) || UserType.LECTURER.equals(userType)) && department == null) {
+                    log.warn("Skipping row {} due to missing department for {}", row.getRowNum(), userType);
+                    continue;
+                }
+
+                if (!roleByType.containsKey(userType)) {
+                    log.warn("Skipping row {} due to unsupported user type {}", row.getRowNum(), userType);
+                    continue;
+                }
+
                 User user = new User();
-                user.setEmail(email.toLowerCase());
+                user.setEmail(emailLower);
                 user.setPassword(passwordEncoder.encode(rawPassword));
-                user.setUserIdentifier(userIdentifier);
+                user.setUserIdentifier(generateUserIdentifier(userType, department, prefixCounters));
                 user.setFullName(fullName);
                 user.setGender(parseGender(genderStr));
-                user.setType(parseUserType(userTypeStr));
-                user.setStatus(be.library_digital.demo.common.UserStatus.ACTIVE);
+                user.setType(userType);
+                user.setStatus(UserStatus.ACTIVE);
                 user.setDateOfBirth(LocalDate.now());
                 user.setMustChangePassword(true);
+                user.setFailedLoginAttempts(0);
+                user.setLastFailedLoginDate(null);
 
-                if (departmentName != null && !departmentName.isEmpty()) {
-                    Optional<Department> dept = departmentRepository.findByName(departmentName);
-                    dept.ifPresent(user::setDepartment);
+                if (department != null) {
+                    user.setDepartment(department);
                 }
 
                 toSave.add(user);
@@ -368,9 +442,296 @@ public class UserManagementService {
             throw new BadRequestException("Failed to read Excel file");
         }
 
+        if (toSave.isEmpty()) {
+            return 0;
+        }
+
         userRepository.saveAll(toSave);
+
+        List<UserHasRole> rolesToSave = new ArrayList<>();
+        for (User user : toSave) {
+            Role role = roleByType.get(user.getType());
+            if (role == null) {
+                log.warn("Skipping role assignment for user {}", user.getEmail());
+                continue;
+            }
+            rolesToSave.add(UserHasRole.builder()
+                    .role(role)
+                    .user(user)
+                    .build());
+        }
+        userHasRoleRepository.saveAll(rolesToSave);
+
         log.info("Imported {} users via Excel", toSave.size());
         return toSave.size();
+    }
+
+    public int importStudents(MultipartFile file, User currentUser) {
+        if (currentUser == null || !UserType.ADMIN.equals(currentUser.getType())) {
+            throw new ForbiddenException("Only ADMIN can import students");
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File must not be empty");
+        }
+
+        Role studentRole = roleRepository.findByName("STUDENT")
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: STUDENT"));
+        Map<String, Integer> prefixCounters = new HashMap<>();
+        List<User> toSave = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            boolean isHeader = true;
+            for (Row row : sheet) {
+                if (isHeader) {
+                    isHeader = false;
+                    continue;
+                }
+                if (row == null || isRowEmpty(row)) {
+                    continue;
+                }
+
+                String email = getStringCell(row, 0);
+                String rawPassword = getStringCell(row, 1);
+                String fullName = getStringCell(row, 2);
+                String birthYearStr = getStringCell(row, 3);
+                String address = getStringCell(row, 4);
+                String phone = getStringCell(row, 5);
+                String classroomCode = getStringCell(row, 6);
+                String statusStr = getStringCell(row, 7);
+
+                if (email == null || email.isEmpty() || rawPassword == null || rawPassword.isEmpty()
+                        || fullName == null || fullName.isEmpty()
+                        || birthYearStr == null || birthYearStr.isEmpty()
+                        || classroomCode == null || classroomCode.isEmpty()) {
+                    log.warn("Skipping row {} due to missing required fields", row.getRowNum());
+                    continue;
+                }
+
+                String emailLower = email.toLowerCase();
+                if (userRepository.existsByEmail(emailLower)) {
+                    log.warn("Skipping existing user with email {}", emailLower);
+                    continue;
+                }
+
+                Integer birthYear = parseYear(birthYearStr);
+                if (birthYear == null) {
+                    log.warn("Skipping row {} due to invalid birthYear {}", row.getRowNum(), birthYearStr);
+                    continue;
+                }
+
+                Classroom classroom = classroomRepository.findByCodeIgnoreCase(classroomCode.trim())
+                        .orElse(null);
+                if (classroom == null) {
+                    log.warn("Skipping row {} due to missing classroom with code {}", row.getRowNum(), classroomCode);
+                    continue;
+                }
+
+                Integer startYear = classroom.getCohort() != null ? classroom.getCohort().getStartYear() : null;
+                if (startYear == null) {
+                    log.warn("Skipping row {} due to missing cohort start year for classroom {}", row.getRowNum(), classroomCode);
+                    continue;
+                }
+
+                User user = new User();
+                user.setEmail(emailLower);
+                user.setPassword(passwordEncoder.encode(rawPassword));
+                user.setFullName(fullName);
+                user.setDateOfBirth(LocalDate.of(birthYear, 1, 1));
+                user.setAddress(address);
+                user.setPhone(phone);
+                user.setType(UserType.STUDENT);
+                UserStatus status = parseUserStatus(statusStr);
+                user.setStatus(status != null ? status : UserStatus.ACTIVE);
+                user.setUserIdentifier(generateStudentIdentifier(startYear, prefixCounters));
+                user.setClassroom(classroom);
+                user.setMustChangePassword(true);
+                user.setFailedLoginAttempts(0);
+                user.setLastFailedLoginDate(null);
+                toSave.add(user);
+            }
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to read Excel file");
+        }
+
+        if (toSave.isEmpty()) {
+            return 0;
+        }
+
+        userRepository.saveAll(toSave);
+
+        List<UserHasRole> rolesToSave = new ArrayList<>();
+        for (User user : toSave) {
+            rolesToSave.add(UserHasRole.builder()
+                    .role(studentRole)
+                    .user(user)
+                    .build());
+        }
+        userHasRoleRepository.saveAll(rolesToSave);
+
+        log.info("Imported {} students via Excel", toSave.size());
+        return toSave.size();
+    }
+
+    public byte[] generateUserImportTemplate() {
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Users");
+            Row header = sheet.createRow(0);
+            String[] headers = {
+                    "email",
+                    "password",
+                    "gender",
+                    "fullName",
+                    "userType",
+                    "departmentCode"
+            };
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+                sheet.setColumnWidth(i, 20 * 256);
+            }
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to generate import template");
+        }
+    }
+
+    public byte[] generateStudentImportTemplate() {
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Students");
+            Row header = sheet.createRow(0);
+            String[] headers = {
+                    "email",
+                    "password",
+                    "fullName",
+                    "birthYear",
+                    "address",
+                    "phone",
+                    "classroomCode",
+                    "status"
+            };
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+                sheet.setColumnWidth(i, 20 * 256);
+            }
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to generate student import template");
+        }
+    }
+
+    private String generateUserIdentifier(UserType userType, Department department, Map<String, Integer> prefixCounters) {
+        String prefix = buildUserIdentifierPrefix(userType, department);
+        int nextSequence = prefixCounters.computeIfAbsent(prefix, this::loadNextSequenceForPrefix);
+
+        String identifier;
+        int current = nextSequence;
+        do {
+            identifier = prefix + String.format("%03d", current);
+            current++;
+        } while (userRepository.existsByUserIdentifier(identifier));
+
+        prefixCounters.put(prefix, current);
+        return identifier;
+    }
+
+    private String generateStudentIdentifier(Integer startYear, Map<String, Integer> prefixCounters) {
+        if (startYear == null) {
+            throw new BadRequestException("Start year is required for student identifier");
+        }
+        String prefix = String.valueOf(startYear);
+        int nextSequence = prefixCounters != null
+                ? prefixCounters.computeIfAbsent(prefix, this::loadNextSequenceForPrefix)
+                : loadNextSequenceForPrefix(prefix);
+
+        String identifier;
+        int current = nextSequence;
+        do {
+            identifier = prefix + String.format("%04d", current);
+            current++;
+        } while (userRepository.existsByUserIdentifier(identifier));
+
+        if (prefixCounters != null) {
+            prefixCounters.put(prefix, current);
+        }
+        return identifier;
+    }
+
+    private String buildUserIdentifierPrefix(UserType userType, Department department) {
+        if (userType == null) {
+            throw new BadRequestException("UserType is required for user identifier");
+        }
+        switch (userType) {
+            case LECTURER:
+                if (department == null || department.getCode() == null || department.getCode().trim().isEmpty()) {
+                    throw new BadRequestException("Department code is required for LECTURER");
+                }
+                return department.getCode().trim().toUpperCase() + "GV";
+            case ADMIN:
+                return "ADMIN";
+            case SUB_ADMIN:
+                return "SUB_ADMIN";
+            default:
+                throw new BadRequestException("Unsupported userType for identifier: " + userType);
+        }
+    }
+
+    private int loadNextSequenceForPrefix(String prefix) {
+        Optional<User> lastUser = userRepository.findTopByUserIdentifierStartingWithOrderByUserIdentifierDesc(prefix);
+        if (lastUser.isPresent()) {
+            String identifier = lastUser.get().getUserIdentifier();
+            if (identifier != null && identifier.length() > prefix.length()) {
+                String suffix = identifier.substring(prefix.length());
+                int current = parseSequenceSuffix(suffix);
+                return current + 1;
+            }
+        }
+        return 1;
+    }
+
+    private int parseSequenceSuffix(String value) {
+        if (value == null || value.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private Integer parseYear(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            int year = Integer.parseInt(value.trim());
+            if (year < 1900 || year > LocalDate.now().getYear() + 1) {
+                return null;
+            }
+            return year;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private UserStatus parseUserStatus(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase();
+        try {
+            return switch (normalized) {
+                case "ACTIVE" -> UserStatus.ACTIVE;
+                case "INACTIVE" -> UserStatus.INACTIVE;
+                case "LOCK", "LOCKED" -> UserStatus.LOCK;
+                default -> null;
+            };
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void applyAdminUpdates(User target, UpdateUserRequest request) {
@@ -396,6 +757,9 @@ public class UserManagementService {
         if (request.getPhone() != null) {
             target.setPhone(request.getPhone());
         }
+        if (request.getAddress() != null) {
+            target.setAddress(request.getAddress());
+        }
         if (request.getType() != null) {
             target.setType(request.getType());
         }
@@ -410,6 +774,11 @@ public class UserManagementService {
             Department dept = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
             target.setDepartment(dept);
+        }
+        if (request.getClassroomId() != null) {
+            Classroom classroom = classroomRepository.findById(request.getClassroomId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
+            target.setClassroom(classroom);
         }
     }
 
@@ -430,7 +799,8 @@ public class UserManagementService {
         if (request.getFullName() != null || request.getGender() != null ||
                 request.getUserIdentifier() != null || request.getEmail() != null ||
                 request.getType() != null || request.getStatus() != null ||
-                request.getDepartmentId() != null) {
+                request.getDepartmentId() != null || request.getAddress() != null ||
+                request.getClassroomId() != null) {
             throw new ForbiddenException("You can only update phone or dateOfBirth");
         }
     }
@@ -458,6 +828,9 @@ public class UserManagementService {
         if (request.getPhone() != null) {
             target.setPhone(request.getPhone());
         }
+        if (request.getAddress() != null) {
+            target.setAddress(request.getAddress());
+        }
         if (request.getType() != null) {
             if (UserType.ADMIN.equals(request.getType())) {
                 throw new ForbiddenException("SUB_ADMIN cannot assign ADMIN role");
@@ -479,6 +852,11 @@ public class UserManagementService {
             }
             target.setDepartment(dept);
         }
+        if (request.getClassroomId() != null) {
+            Classroom classroom = classroomRepository.findById(request.getClassroomId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
+            target.setClassroom(classroom);
+        }
     }
 
     private void ensureNoAdminEscalation(User target, UpdateUserRequest request) {
@@ -495,21 +873,22 @@ public class UserManagementService {
     }
 
     private Gender parseGender(String value) {
-        if (value == null) return null;
-        try {
-            switch (value) {
-                case "Nam":
-                    return Gender.MALE;
-                case "Nữ":
-                    return Gender.FEMALE;
-                case "Khác":
-                    return Gender.OTHER;
-                default:
-                    return null;
-            }
-            // return Gender.valueOf(value.trim().toUpperCase());
-        } catch (Exception e) {
+        if (value == null) {
             return null;
+        }
+        String normalized = value.trim().toUpperCase();
+        switch (normalized) {
+            case "MALE":
+            case "NAM":
+                return Gender.MALE;
+            case "FEMALE":
+            case "NU":
+                return Gender.FEMALE;
+            case "OTHER":
+            case "KHAC":
+                return Gender.OTHER;
+            default:
+                return null;
         }
     }
 
@@ -521,6 +900,7 @@ public class UserManagementService {
                 case "ADMIN" -> UserType.ADMIN;
                 case "SUB_ADMIN", "SUB-ADMIN" -> UserType.SUB_ADMIN;
                 case "LECTURER" -> UserType.LECTURER;
+                case "STUDENT" -> UserType.STUDENT;
                 default -> throw new BadRequestException("Invalid userType: " + value);
             };
         } catch (Exception e) {

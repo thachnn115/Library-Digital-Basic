@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { Modal, Form, Input, Select, Steps, message, Alert, Layout, Card, Divider } from "antd";
 import { FolderOutlined, CheckCircleOutlined, FileTextOutlined, EditOutlined, TagOutlined } from "@ant-design/icons";
 import { useForm, Controller } from "react-hook-form";
@@ -7,7 +7,6 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { resourceApi } from "@/api/resource.api";
 import { courseApi } from "@/api/course.api";
-import { classroomApi } from "@/api/classroom.api";
 import { resourceTypeApi } from "@/api/resource-type.api";
 import { FileUpload } from "@/components/common/FileUpload";
 import { useAuthStore } from "@/stores/auth.store";
@@ -17,7 +16,6 @@ import type { Course } from "@/types/department.types";
 const { TextArea } = Input;
 
 const uploadSchema = z.object({
-	classroomId: z.string().min(1, "Phải chọn lớp"),
 	title: z.string().min(1, "Tiêu đề không được để trống"),
 	description: z.string().optional(),
 	courseId: z.string().min(1, "Phải chọn học phần"),
@@ -45,54 +43,13 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 	const queryClient = useQueryClient();
 	const { user } = useAuthStore();
 
-	// Get courses first - will be filtered by instructor for LECTURER
-	const { data: allCourses = [], error: coursesError } = useQuery({
+	// Get courses first - will be filtered by department for LECTURER
+	const { data: allCourses = [], error: coursesError } = useQuery<Course[], unknown>({
 		queryKey: ["courses", user?.id, user?.type],
 		queryFn: () => courseApi.getAll(),
 		retry: false,
 		enabled: !!user?.id, // Only fetch if user is logged in
 	});
-
-	// For LECTURER: Extract classrooms from courses (since LECTURER can't access GET /classroom)
-	// For ADMIN/SUB_ADMIN: Fetch classrooms from API
-	const { data: allClassrooms = [] } = useQuery({
-		queryKey: ["classrooms"],
-		queryFn: () => classroomApi.getAll(),
-		enabled: (user?.type === "ADMIN" || user?.type === "SUB_ADMIN") && !!user?.id, // Only fetch for ADMIN/SUB_ADMIN
-		retry: false,
-		// Silently ignore 403 errors for LECTURER (they shouldn't call this API)
-		onError: (error) => {
-			// Only log if it's not a 403 (which is expected for LECTURER)
-			if (error && typeof error === "object" && "response" in error) {
-				const axiosError = error as { response?: { status?: number } };
-				if (axiosError.response?.status !== 403) {
-					console.error("Failed to fetch classrooms:", error);
-				}
-			}
-		},
-	});
-
-	// Extract unique classrooms from courses for LECTURER
-	const classroomsFromCourses = useMemo(() => {
-		if (user?.type !== "LECTURER" || !allCourses.length) {
-			return [];
-		}
-		const classroomMap = new Map<string, Course["classroom"]>();
-		allCourses.forEach((course) => {
-			if (course.classroom?.id) {
-				const classroomId = course.classroom.id.toString();
-				if (!classroomMap.has(classroomId)) {
-					classroomMap.set(classroomId, course.classroom);
-				}
-			}
-		});
-		return Array.from(classroomMap.values());
-	}, [allCourses, user?.type]);
-
-	// Use classrooms from API for ADMIN/SUB_ADMIN, or from courses for LECTURER
-	const classrooms =
-		user?.type === "LECTURER" ? classroomsFromCourses : allClassrooms;
-
 
 	const { data: resourceTypes = [] } = useQuery({
 		queryKey: ["resource-types"],
@@ -106,54 +63,25 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 		setValue,
 		watch,
 		formState: { errors, isSubmitting },
-	} = useForm<ResourceUploadRequest & { file: File; classroomId: string }>({
+	} = useForm<ResourceUploadRequest & { file: File }>({
 		resolver: zodResolver(uploadSchema),
 	});
-
-	const selectedClassroomId = watch("classroomId");
 	const selectedCourseId = watch("courseId");
-	const selectedClassroom = classrooms.find(
-		(c) => c.id.toString() === selectedClassroomId
-	);
 
-	// Filter courses by instructor and classroom
-	// Backend already filters courses by instructor for LECTURER, but we need to filter by classroom too
-	const availableCourses = (allCourses as Course[]).filter((course: Course) => {
+	// Filter courses by department (LECTURER can upload within their department)
+	const availableCourses = allCourses.filter((course) => {
 		// If there's an error fetching courses, don't filter (will show error message)
 		if (coursesError) {
 			return false;
 		}
 
-		// Backend already filters by instructor for LECTURER, but double-check for safety
-		if (user?.type === "LECTURER") {
-			// Must be instructor of the course
-			if (!user?.id || !course.instructor?.id) {
-				return false;
-			}
-
-			// Normalize IDs to strings for comparison (trim whitespace)
-			const userId = String(user.id).trim();
-			const instructorId = String(course.instructor.id).trim();
-			const isInstructor = userId === instructorId;
-
-			if (!isInstructor) {
-				return false;
-			}
+		const userDeptId = user?.department?.id;
+		const userDeptCode = user?.department?.code;
+		if (userDeptId && course.department?.id) {
+			return String(userDeptId) === String(course.department.id);
 		}
-
-		// If classroom is selected, course must belong to that classroom
-		if (selectedClassroomId) {
-			const courseClassroomId = course.classroom?.id;
-			if (!courseClassroomId) {
-				return false; // Course must have a classroom
-			}
-			// Normalize classroom IDs to strings for comparison
-			const normalizedCourseClassroomId = String(courseClassroomId).trim();
-			const normalizedSelectedClassroomId = String(selectedClassroomId).trim();
-			const matchesClassroom =
-				normalizedCourseClassroomId === normalizedSelectedClassroomId;
-
-			return matchesClassroom;
+		if (userDeptCode && course.department?.code) {
+			return userDeptCode === course.department.code;
 		}
 
 		return true;
@@ -162,13 +90,6 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 	const selectedCourse = availableCourses.find(
 		(c) => c.id.toString() === selectedCourseId
 	);
-
-	// Reset courseId when classroom changes
-	useEffect(() => {
-		if (selectedClassroomId) {
-			setValue("courseId", "", { shouldValidate: false });
-		}
-	}, [selectedClassroomId, setValue]);
 
 	const uploadMutation = useMutation({
 		mutationFn: async (data: ResourceUploadRequest & { file: File }) => {
@@ -199,20 +120,11 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 					errorMessage =
 						"Bạn không có quyền upload vào học phần này. Chỉ có thể upload vào các học phần mà bạn là giảng viên.";
 				} else if (axiosError.response?.status === 400) {
-					// Bad request - could be file type validation
+					// Bad request - general error
 					const backendMessage = axiosError.response?.data?.message || "";
-					if (
-						backendMessage.includes("Word") ||
-						backendMessage.includes("PowerPoint") ||
-						backendMessage.includes("convert")
-					) {
-						errorMessage =
-							"File Word (.doc, .docx) và PowerPoint (.ppt, .pptx) không được phép. Vui lòng chuyển đổi sang PDF trước khi tải lên.";
-					} else {
-						errorMessage =
-							backendMessage ||
-							"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.";
-					}
+					errorMessage =
+						backendMessage ||
+						"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.";
 				} else if (axiosError.response?.status === 404) {
 					errorMessage =
 						"Không tìm thấy học phần hoặc loại học liệu. Vui lòng thử lại.";
@@ -232,10 +144,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 			setCurrentStep(2);
 		} else if (currentStep === 2) {
 			handleSubmit((data) => {
-				// Remove classroomId from upload data as it's not part of ResourceUploadRequest
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				const { classroomId, ...uploadData } = data;
-				uploadMutation.mutate(uploadData);
+				uploadMutation.mutate(data);
 			})();
 		}
 	};
@@ -259,7 +168,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 				current={currentStep}
 				className="mb-6"
 				items={[
-					{ title: "Chọn lớp và học phần" },
+					{ title: "Chọn học phần" },
 					{ title: "Chọn file" },
 					{ title: "Thông tin học liệu" },
 				]}
@@ -267,127 +176,11 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 
 			{currentStep === 0 && (
 				<Form layout="vertical">
-					<Controller
-						name="classroomId"
-						control={control}
-						render={({ field }) => (
-							<Form.Item
-								label="Lớp"
-								validateStatus={errors.classroomId ? "error" : ""}
-								help={errors.classroomId?.message}
-							>
-								<Select
-									{...field}
-									placeholder="Chọn lớp (sẽ tự động chọn CTĐT, Chuyên ngành, Khóa)"
-									showSearch
-									filterOption={(input, option) =>
-										(option?.label ?? "")
-											.toLowerCase()
-											.includes(input.toLowerCase())
-									}
-									options={classrooms.map((classroom) => ({
-										value: classroom.id.toString(),
-										label: `${classroom.code} - ${classroom.name}${
-											classroom.specialization
-												? ` (${
-														classroom.specialization.department?.name || ""
-												  })`
-												: ""
-										}`,
-									}))}
-									notFoundContent={
-										classrooms.length === 0
-											? user?.type === "LECTURER"
-												? "Không tìm thấy lớp nào trong khoa của bạn."
-												: "Không tìm thấy lớp nào"
-											: "Không tìm thấy"
-									}
-								/>
-							</Form.Item>
-						)}
-					/>
-
-					{selectedClassroom && (
+					{!!coursesError && (
 						<Alert
-							message="Thông tin lớp đã chọn"
-							description={
-								<div className="mt-2 space-y-1">
-									{selectedClassroom.specialization?.department && (
-										<p>
-											<strong>Khoa:</strong>{" "}
-											{selectedClassroom.specialization.department.name} (
-											{selectedClassroom.specialization.department.code})
-										</p>
-									)}
-									{selectedClassroom.specialization?.program && (
-										<p>
-											<strong>Chương trình đào tạo:</strong>{" "}
-											{selectedClassroom.specialization.program.name} (
-											{selectedClassroom.specialization.program.code})
-										</p>
-									)}
-									{selectedClassroom.specialization && (
-										<p>
-											<strong>Chuyên ngành:</strong>{" "}
-											{selectedClassroom.specialization.name} (
-											{selectedClassroom.specialization.code})
-										</p>
-									)}
-									{selectedClassroom.cohort && (
-										<p>
-											<strong>Khóa:</strong> {selectedClassroom.cohort.code} (
-											{selectedClassroom.cohort.startYear}
-											{selectedClassroom.cohort.endYear
-												? `-${selectedClassroom.cohort.endYear}`
-												: ""}
-											)
-										</p>
-									)}
-									{coursesError && (
-										<div className="text-red-600 mt-2 space-y-1">
-											<p>
-												<strong>Lỗi:</strong> Không thể tải danh sách học phần
-												(403 Forbidden).
-											</p>
-											{user?.mustChangePassword && (
-												<div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-													<p className="font-semibold text-yellow-800">
-														⚠️ Bạn cần đổi mật khẩu trước khi sử dụng hệ thống
-													</p>
-													<p className="text-sm text-yellow-700 mt-1">
-														Vui lòng vào <strong>Hồ sơ</strong> để đổi mật khẩu,
-														sau đó đăng xuất và đăng nhập lại.
-													</p>
-												</div>
-											)}
-											{!user?.mustChangePassword && (
-												<p className="mt-2">
-													<strong>Giải pháp:</strong> Vui lòng đăng xuất và đăng
-													nhập lại. Nếu vấn đề vẫn tiếp tục, liên hệ quản trị
-													viên để kiểm tra xem tài khoản của bạn đã được gán
-													đúng role LECTURER chưa.
-												</p>
-											)}
-										</div>
-									)}
-									{!coursesError &&
-										availableCourses.length === 0 &&
-										selectedClassroomId && (
-											<div className="text-orange-600 mt-2 space-y-1">
-												<p>
-													<strong>Lưu ý:</strong> Không tìm thấy học phần nào
-													trong lớp này mà bạn là giảng viên.
-												</p>
-												<p className="mt-2">
-													Vui lòng kiểm tra lại trong{" "}
-													<strong>Quản lý Danh mục</strong> xem học phần đã được
-													gán đúng giảng viên chưa.
-												</p>
-											</div>
-										)}
-								</div>
-							}
-							type={coursesError ? "error" : "info"}
+							message="Không thể tải danh sách học phần"
+							description="Vui lòng thử lại hoặc kiểm tra quyền truy cập tài khoản."
+							type="error"
 							showIcon
 							className="mb-4"
 						/>
@@ -413,20 +206,14 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 									}
 									options={availableCourses.map((course) => ({
 										value: course.id.toString(),
-										label: `${
-											course.title || course.name || course.code || "Học phần"
-										}${
-											course.instructor
-												? ` - GV: ${course.instructor.fullName}`
-												: ""
-										}`,
+										label: `${course.code} - ${course.title}${course.department?.code
+											? ` (${course.department.code})`
+											: ""
+											}`,
 									}))}
-									disabled={!selectedClassroomId}
 									notFoundContent={
 										availableCourses.length === 0
-											? selectedClassroomId
-												? "Không tìm thấy học phần nào trong lớp này mà bạn là giảng viên."
-												: "Vui lòng chọn lớp trước"
+											? "Không tìm thấy học phần"
 											: "Không tìm thấy"
 									}
 								/>
@@ -447,13 +234,13 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 							type="button"
 							onClick={async () => {
 								const courseId = watch("courseId");
-								if (selectedClassroomId && courseId) {
+								if (courseId) {
 									setCurrentStep(1);
 								} else {
-									message.warning("Vui lòng chọn đầy đủ lớp và học phần");
+									message.warning("Vui lòng chọn học phần");
 								}
 							}}
-							disabled={!selectedClassroomId || !watch("courseId")}
+							disabled={!watch("courseId")}
 							className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
 							style={{ backgroundColor: '#2563eb', color: 'white' }}
 						>
@@ -521,39 +308,6 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 					>
 						<div className="space-y-4">
 							<h3 className="font-semibold text-lg mb-4">Chọn folder học phần</h3>
-							
-							{selectedClassroom && (
-								<Card size="small" className="mb-4">
-									<div className="space-y-2 text-sm">
-										{selectedClassroom.specialization?.department && (
-											<p>
-												<strong>Khoa:</strong>{" "}
-												{selectedClassroom.specialization.department.name}
-											</p>
-										)}
-										{selectedClassroom.specialization?.program && (
-											<p>
-												<strong>CTĐT:</strong>{" "}
-												{selectedClassroom.specialization.program.name}
-											</p>
-										)}
-										{selectedClassroom.specialization && (
-											<p>
-												<strong>Chuyên ngành:</strong>{" "}
-												{selectedClassroom.specialization.name}
-											</p>
-										)}
-										{selectedClassroom.cohort && (
-											<p>
-												<strong>Khóa:</strong> {selectedClassroom.cohort.code}
-											</p>
-										)}
-										<p>
-											<strong>Lớp:</strong> {selectedClassroom.name}
-										</p>
-									</div>
-								</Card>
-							)}
 
 							<div className="space-y-2">
 								<p className="text-sm font-medium text-gray-700 mb-2">
@@ -593,7 +347,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 														<div className="flex-1 text-sm">
 															<div className="flex items-center gap-2">
 																<p className="font-medium">
-																	{course.title || course.name || course.code || "Học phần"}
+																	{course.code} - {course.title}
 																</p>
 																{isSelected && (
 																	<CheckCircleOutlined
@@ -602,9 +356,9 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 																	/>
 																)}
 															</div>
-															{course.instructor && (
+															{course.department && (
 																<p className="text-xs text-gray-500 mt-1">
-																	GV: {course.instructor.fullName}
+																	Khoa: {course.department.name} ({course.department.code})
 																</p>
 															)}
 														</div>
@@ -631,10 +385,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 							<Form
 								layout="vertical"
 								onFinish={handleSubmit((data) => {
-									// Remove classroomId from upload data as it's not part of ResourceUploadRequest
-									// eslint-disable-next-line @typescript-eslint/no-unused-vars
-									const { classroomId, ...uploadData } = data;
-									uploadMutation.mutate(uploadData);
+									uploadMutation.mutate(data);
 								})}
 							>
 								{selectedCourse && (
@@ -654,11 +405,14 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 													Học phần đã chọn
 												</p>
 												<p className="font-semibold text-base text-gray-900">
-													{selectedCourse.title || selectedCourse.name || selectedCourse.code}
+													{selectedCourse.code} - {selectedCourse.title}
 												</p>
-												{selectedCourse.instructor && (
+												{selectedCourse.department && (
 													<p className="text-sm text-gray-600 mt-1">
-														Giảng viên: <span className="font-medium">{selectedCourse.instructor.fullName}</span>
+														Khoa:{" "}
+														<span className="font-medium">
+															{selectedCourse.department.name} ({selectedCourse.department.code})
+														</span>
 													</p>
 												)}
 											</div>
@@ -676,7 +430,7 @@ export const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({
 									/>
 								)}
 
-								<Divider orientation="left" plain>
+								<Divider titlePlacement="left" plain>
 									<span className="text-sm font-medium text-gray-600">Chi tiết học liệu</span>
 								</Divider>
 

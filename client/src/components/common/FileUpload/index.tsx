@@ -126,12 +126,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 					Kéo thả file vào đây hoặc click để chọn file
 				</p>
 				<p className="ant-upload-hint text-sm text-gray-500 mt-2">
-					Hỗ trợ: PDF, XLS, XLSX, JPG, PNG, GIF, MP4
-					<br />
-					<strong className="text-orange-600">
-						Lưu ý: File Word (.doc, .docx) và PowerPoint (.ppt, .pptx) cần được
-						chuyển đổi sang PDF trước khi tải lên.
-					</strong>
+					Hỗ trợ: PDF, Word, PowerPoint, Excel, Images, Video
 					<br />
 					Kích thước tối đa: {maxSize / (1024 * 1024)}MB
 				</p>

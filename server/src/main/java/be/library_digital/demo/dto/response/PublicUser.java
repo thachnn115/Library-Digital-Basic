@@ -23,15 +23,18 @@ public class PublicUser implements Serializable {
     private Gender gender;
     private LocalDate dateOfBirth;
     private String phone;
+    private String address;
     private UserType type;
     private UserStatus status;
     private String avatarUrl;
     private DepartmentResponse department;
+    private ClassroomResponse classroom;
 
     public static PublicUser fromUser(User user) {
         if (user == null) return null;
 
         DepartmentResponse deptResp = DepartmentResponse.fromDepartment(user.getDepartment());
+        ClassroomResponse classroomResp = ClassroomResponse.fromClassroom(user.getClassroom());
 
         return PublicUser.builder()
                 .id(user.getId())
@@ -42,10 +45,12 @@ public class PublicUser implements Serializable {
                 .gender(user.getGender())
                 .dateOfBirth(user.getDateOfBirth())
                 .phone(user.getPhone())
+                .address(user.getAddress())
                 .type(user.getType())
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
                 .department(deptResp)
+                .classroom(classroomResp)
                 .build();
     }
 }

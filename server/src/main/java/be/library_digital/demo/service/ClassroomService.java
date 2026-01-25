@@ -39,6 +39,11 @@ public class ClassroomService {
 
         Cohort cohort = cohortRepository.findByCodeIgnoreCase(request.getCohortCode().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Cohort not found"));
+        if (cohort.getProgram() != null &&
+                (specialization.getPrograms() == null || specialization.getPrograms().stream()
+                        .noneMatch(program -> program != null && program.getId().equals(cohort.getProgram().getId())))) {
+            throw new BadRequestException("Specialization does not belong to cohort's program");
+        }
 
         Classroom classroom = Classroom.builder()
                 .code(code)
@@ -67,6 +72,11 @@ public class ClassroomService {
 
         Cohort cohort = cohortRepository.findByCodeIgnoreCase(request.getCohortCode().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Cohort not found"));
+        if (cohort.getProgram() != null &&
+                (specialization.getPrograms() == null || specialization.getPrograms().stream()
+                        .noneMatch(program -> program != null && program.getId().equals(cohort.getProgram().getId())))) {
+            throw new BadRequestException("Specialization does not belong to cohort's program");
+        }
 
         classroom.setCode(code);
         classroom.setName(request.getName().trim());

@@ -9,6 +9,8 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -20,8 +22,7 @@ public class SpecializationResponse implements Serializable {
     private String code;
     private String name;
     private String description;
-    private DepartmentResponse department;
-    private TrainingProgramResponse program;
+    private List<TrainingProgramResponse> programs;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -33,8 +34,10 @@ public class SpecializationResponse implements Serializable {
                 .code(specialization.getCode())
                 .name(specialization.getName())
                 .description(specialization.getDescription())
-                .department(DepartmentResponse.fromDepartment(specialization.getDepartment()))
-                .program(TrainingProgramResponse.fromProgram(specialization.getProgram()))
+                .programs(specialization.getPrograms() == null ? List.of()
+                        : specialization.getPrograms().stream()
+                        .map(TrainingProgramResponse::fromProgram)
+                        .collect(Collectors.toList()))
                 .createdAt(specialization.getCreatedAt())
                 .updatedAt(specialization.getUpdatedAt())
                 .build();

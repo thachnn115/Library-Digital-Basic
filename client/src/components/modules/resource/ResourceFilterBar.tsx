@@ -93,18 +93,29 @@ export const ResourceFilterBar: React.FC<ResourceFilterBarProps> = ({
 			{ id: string | number; code: string; name: string }
 		>();
 		(allCourses as Course[]).forEach((course) => {
-			// Backend returns 'program' not 'trainingProgram' in SpecializationResponse
+			const specPrograms = course.classroom?.specialization?.programs || [];
+			if (specPrograms.length > 0) {
+				specPrograms.forEach((program) => {
+					if (program?.code && !programMap.has(program.code)) {
+						programMap.set(program.code, {
+							id: program.id || program.code,
+							code: program.code,
+							name: program.name || program.code,
+						});
+					}
+				});
+				return;
+			}
+
 			const program =
 				course.classroom?.specialization?.program ||
 				course.classroom?.specialization?.trainingProgram;
-			if (program?.code) {
-				if (!programMap.has(program.code)) {
-					programMap.set(program.code, {
-						id: program.id || program.code,
-						code: program.code,
-						name: program.name || program.code,
-					});
-				}
+			if (program?.code && !programMap.has(program.code)) {
+				programMap.set(program.code, {
+					id: program.id || program.code,
+					code: program.code,
+					name: program.name || program.code,
+				});
 			}
 		});
 		return Array.from(programMap.values());

@@ -21,7 +21,15 @@ export const API_ENDPOINTS = {
 		RESET_PASSWORD: (id: string | number) => `/users/${id}/reset-password`,
 		CHANGE_PASSWORD: "/users/change-password",
 		IMPORT: "/users/import",
+		IMPORT_TEMPLATE: "/users/import-template",
 		UPDATE_AVATAR: (id: string | number) => `/users/${id}/avatar`,
+	},
+
+	// Student Management
+	STUDENT: {
+		BASE: "/students",
+		IMPORT: "/students/import",
+		IMPORT_TEMPLATE: "/students/import-template",
 	},
 
 	// Resource Management

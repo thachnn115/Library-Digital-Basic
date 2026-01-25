@@ -48,6 +48,9 @@ public class User implements UserDetails, Serializable {
 
     private String phone;
 
+    @Column(name = "address")
+    private String address;
+
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
@@ -100,6 +103,10 @@ public class User implements UserDetails, Serializable {
     @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
+
+    @ManyToOne
+    @JoinColumn(name = "classroom_id")
+    private Classroom classroom;
 
     @OneToMany(mappedBy = "user", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @ToString.Exclude

@@ -6,7 +6,8 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CreateUserRequest } from "@/types/user.types";
 import { departmentApi } from "@/api/department.api";
-import type { Department } from "@/types/department.types";
+import { classroomApi } from "@/api/classroom.api";
+import type { Department, Classroom } from "@/types/department.types";
 
 const createUserSchema = z
 	.object({
@@ -14,6 +15,7 @@ const createUserSchema = z
 		password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
 		fullName: z.string().min(1, "Họ tên không được để trống").optional(),
 		phone: z.string().optional(),
+		address: z.string().optional(),
 		gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
 		userIdentifier: z
 			.string()
@@ -28,29 +30,40 @@ const createUserSchema = z
 			)
 			.transform((val) => (val ? val.trim() : undefined)),
 		dateOfBirth: z.string().optional(),
-		type: z.enum(["ADMIN", "SUB_ADMIN", "LECTURER"]),
+		type: z.enum(["ADMIN", "SUB_ADMIN", "LECTURER", "STUDENT"]),
 		status: z.enum(["ACTIVE", "INACTIVE", "LOCK"]).optional(),
 		departmentId: z.number().optional(),
+		classroomId: z.string().optional(),
 	})
-	.refine(
-		(data) => {
-			// SUB_ADMIN và LECTURER bắt buộc phải có departmentId
-			if (data.type === "SUB_ADMIN" || data.type === "LECTURER") {
-				return data.departmentId !== undefined && data.departmentId !== null;
+	.superRefine((data, ctx) => {
+		// SUB_ADMIN vA? LECTURER b??_t bu??Tc ph???i cA3 departmentId
+		if (data.type === "SUB_ADMIN" || data.type === "LECTURER") {
+			if (data.departmentId === undefined || data.departmentId === null) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: "Khoa là bắt buộc cho Quản trị khoa và Giảng viên",
+					path: ["departmentId"],
+				});
 			}
-			return true;
-		},
-		{
-			message: "Khoa là bắt buộc cho Quản trị khoa và Giảng viên",
-			path: ["departmentId"],
 		}
-	);
+
+		if (data.type === "STUDENT") {
+			const classroomId = data.classroomId ? data.classroomId.trim() : "";
+			if (!classroomId) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: "Classroom is required for STUDENT",
+					path: ["classroomId"],
+				});
+			}
+		}
+	});
 
 interface UserCreateModalProps {
 	open: boolean;
 	onCancel: () => void;
 	onSubmit: (data: CreateUserRequest) => Promise<void>;
-	currentUserType?: "ADMIN" | "SUB_ADMIN" | "LECTURER";
+	currentUserType?: "ADMIN" | "SUB_ADMIN" | "LECTURER" | "STUDENT";
 }
 
 /**
@@ -86,6 +99,12 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 		queryFn: () => departmentApi.getAll(),
 	});
 
+	const { data: classrooms = [], isLoading: isLoadingClassrooms } = useQuery({
+		queryKey: ["classrooms"],
+		queryFn: () => classroomApi.getAll(),
+		enabled: selectedType === "STUDENT",
+	});
+
 	// Reset form when modal closes
 	useEffect(() => {
 		if (!open) {
@@ -114,7 +133,8 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 				// ADMIN can create all types except ADMIN (backend prevents creating ADMIN)
 				{ label: "Quản trị khoa", value: "SUB_ADMIN" },
 				{ label: "Giảng viên", value: "LECTURER" },
-		  ];
+				{ label: "Hoc vien", value: "STUDENT" },
+			];
 
 	return (
 		<Modal
@@ -189,32 +209,19 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 				</Form.Item>
 
 				<Form.Item
-					label="Mã định danh"
-					validateStatus={errors.userIdentifier ? "error" : ""}
-					help={
-						errors.userIdentifier?.message ||
-						"Mã định danh phải là duy nhất (không trùng với người dùng khác)"
-					}
+					label="Dia chi"
+					validateStatus={errors.address ? "error" : ""}
+					help={errors.address?.message}
 				>
 					<Controller
-						name="userIdentifier"
+						name="address"
 						control={control}
 						render={({ field }) => (
-							<Input
-								{...field}
-								placeholder="Nhập mã định danh (tùy chọn, phải là duy nhất)"
-								maxLength={100}
-								onBlur={(e) => {
-									// Trim value on blur
-									const trimmed = e.target.value.trim();
-									if (trimmed !== e.target.value) {
-										field.onChange(trimmed);
-									}
-								}}
-							/>
+							<Input {...field} placeholder="Nhap dia chi" />
 						)}
 					/>
 				</Form.Item>
+
 
 				<Form.Item
 					label="Ngày sinh"
@@ -252,50 +259,82 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({
 						)}
 					/>
 				</Form.Item>
-
-				<Form.Item
-					label="Khoa"
-					validateStatus={errors.departmentId ? "error" : ""}
-					help={
+				{(selectedType === "SUB_ADMIN" || selectedType === "LECTURER") && (
+					<Form.Item
+						label="Khoa"
+						validateStatus={errors.departmentId ? "error" : ""}
+						help={
 						errors.departmentId?.message ||
 						(departments.length === 0 &&
 							(selectedType === "SUB_ADMIN" || selectedType === "LECTURER") &&
-							"Chưa có khoa nào trong hệ thống. Vui lòng tạo khoa trước.")
+							"Chua co khoa nao trong he thong. Vui long tao khoa truoc.")
 					}
-					required={selectedType === "SUB_ADMIN" || selectedType === "LECTURER"}
-				>
-					<Controller
-						name="departmentId"
-						control={control}
-						render={({ field }) => (
-							<Select
-								{...field}
-								placeholder={
-									isLoadingDepartments
-										? "Đang tải..."
-										: departments.length === 0
-										? "Chưa có khoa nào"
-										: "Chọn khoa"
-								}
-								loading={isLoadingDepartments}
-								disabled={departments.length === 0 || isLoadingDepartments}
-								allowClear={
-									selectedType !== "SUB_ADMIN" && selectedType !== "LECTURER"
-								}
-								options={departments.map((dept: Department) => ({
-									label: `${dept.name} (${dept.code})`,
-									value:
-										typeof dept.id === "number" ? dept.id : Number(dept.id),
-								}))}
-								notFoundContent={
-									departments.length === 0
-										? "Chưa có khoa nào trong hệ thống"
-										: "Không tìm thấy"
-								}
-							/>
-						)}
-					/>
-				</Form.Item>
+						required={selectedType === "SUB_ADMIN" || selectedType === "LECTURER"}
+					>
+						<Controller
+							name="departmentId"
+							control={control}
+							render={({ field }) => (
+								<Select
+									{...field}
+									placeholder={
+										isLoadingDepartments
+											? "Dang tai..."
+											: departments.length === 0
+											? "Chua co khoa nao"
+											: "Chon khoa"
+									}
+									loading={isLoadingDepartments}
+									disabled={departments.length === 0 || isLoadingDepartments}
+									allowClear={selectedType !== "SUB_ADMIN" && selectedType !== "LECTURER"}
+									options={departments.map((dept: Department) => ({
+										label: `${dept.name} (${dept.code})`,
+										value: typeof dept.id === "number" ? dept.id : Number(dept.id),
+									}))}
+									notFoundContent={
+										departments.length === 0
+											? "Chua co khoa nao trong he thong"
+											: "Khong tim thay"
+									}
+								/>
+							)}
+						/>
+					</Form.Item>
+				)}
+				{selectedType === "STUDENT" && (
+					<Form.Item
+						label="Lop"
+						validateStatus={errors.classroomId ? "error" : ""}
+						help={errors.classroomId?.message}
+						required
+					>
+						<Controller
+							name="classroomId"
+							control={control}
+							render={({ field }) => (
+								<Select
+									{...field}
+									placeholder={
+										isLoadingClassrooms
+											? "Dang tai..."
+											: classrooms.length === 0
+											? "Khong co lop"
+											: "Chon lop"
+									}
+									loading={isLoadingClassrooms}
+									disabled={isLoadingClassrooms}
+									options={classrooms.map((classroom: Classroom) => ({
+										label: `${classroom.name} (${classroom.code})`,
+										value: String(classroom.id),
+									}))}
+									notFoundContent={
+										classrooms.length === 0 ? "Khong co lop" : "Khong tim thay"
+									}
+								/>
+							)}
+						/>
+					</Form.Item>
+				)}
 
 				<Form.Item
 					label="Vai trò"

@@ -9,14 +9,12 @@ import apiClient from './client';
 export const courseApi = {
 	/**
 	 * Get all courses
-	 * @param cohortCode - Filter by cohort code (optional)
-	 * @param specializationCode - Filter by specialization code (optional)
+	 * @param code - Filter by course code (optional)
 	 * @param title - Filter by title (optional)
 	 * @param departmentCode - Filter by department code (optional)
 	 */
 	getAll: async (params?: {
-		cohortCode?: string;
-		specializationCode?: string;
+		code?: string;
 		title?: string;
 		departmentCode?: string;
 	}): Promise<Course[]> => {

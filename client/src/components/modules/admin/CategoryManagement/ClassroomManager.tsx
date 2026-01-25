@@ -93,27 +93,55 @@ export const ClassroomManager: React.FC = () => {
 	);
 	const selectedCohort = cohorts.find((c) => c.code === selectedCohortCode);
 
-	// Filter cohorts by specialization's program
-	const availableCohorts = selectedSpecialization?.program?.code
-		? cohorts.filter(
-				(cohort) =>
-					cohort.program?.code === selectedSpecialization.program.code
-		  )
-		: cohorts;
+	const getSpecializationProgramCodes = (
+		spec?: Classroom["specialization"]
+	) => {
+		const codes =
+			spec?.programs?.map((program) => program.code).filter(Boolean) || [];
+		if (codes.length > 0) {
+			return codes;
+		}
+		const legacyCode = spec?.program?.code || spec?.trainingProgram?.code;
+		return legacyCode ? [legacyCode] : [];
+	};
+
+	const specializationHasProgram = (
+		spec: Classroom["specialization"] | undefined,
+		programCode?: string
+	) => {
+		if (!programCode) return false;
+		return getSpecializationProgramCodes(spec).includes(programCode);
+	};
+
+	const selectedProgramCodes =
+		getSpecializationProgramCodes(selectedSpecialization);
+
+	// Filter cohorts by specialization's program(s)
+	const availableCohorts =
+		selectedProgramCodes.length > 0
+			? cohorts.filter((cohort) =>
+					specializationHasProgram(selectedSpecialization, cohort.program?.code)
+			  )
+			: cohorts;
 
 	// Filter specializations by cohort's program
 	const availableSpecializations = selectedCohort?.program?.code
-		? specializations.filter(
-				(spec) => spec.program?.code === selectedCohort.program.code
+		? specializations.filter((spec) =>
+				specializationHasProgram(spec, selectedCohort.program?.code)
 		  )
 		: specializations;
 
 	// Reset cohort when specialization changes (if programs don't match)
 	useEffect(() => {
 		if (selectedSpecializationCode && selectedCohortCode) {
-			const specProgram = selectedSpecialization?.program?.code;
+			const specPrograms =
+				getSpecializationProgramCodes(selectedSpecialization);
 			const cohortProgram = selectedCohort?.program?.code;
-			if (specProgram && cohortProgram && specProgram !== cohortProgram) {
+			if (
+				cohortProgram &&
+				specPrograms.length > 0 &&
+				!specPrograms.includes(cohortProgram)
+			) {
 				// Programs don't match, reset cohort
 				setValue("cohortCode", "", { shouldValidate: false });
 			}
@@ -125,9 +153,14 @@ export const ClassroomManager: React.FC = () => {
 	// Reset specialization when cohort changes (if programs don't match)
 	useEffect(() => {
 		if (selectedCohortCode && selectedSpecializationCode) {
-			const specProgram = selectedSpecialization?.program?.code;
+			const specPrograms =
+				getSpecializationProgramCodes(selectedSpecialization);
 			const cohortProgram = selectedCohort?.program?.code;
-			if (specProgram && cohortProgram && specProgram !== cohortProgram) {
+			if (
+				cohortProgram &&
+				specPrograms.length > 0 &&
+				!specPrograms.includes(cohortProgram)
+			) {
 				// Programs don't match, reset specialization
 				setValue("specializationCode", "", { shouldValidate: false });
 			}
@@ -233,14 +266,22 @@ export const ClassroomManager: React.FC = () => {
 			key: "name",
 		},
 		{
-			title: "Khoa",
-			key: "department",
-			render: (_, record) => record.specialization?.department?.name || "-",
-		},
-		{
 			title: "Chương trình Đào tạo",
 			key: "program",
-			render: (_, record) => record.specialization?.program?.name || record.specialization?.trainingProgram?.name || "-",
+			render: (_, record) => {
+					const programNames =
+						record.specialization?.programs
+							?.map((program) => program.name)
+							.filter(Boolean) || [];
+					if (programNames.length > 0) {
+						return programNames.join(", ");
+					}
+					return (
+						record.specialization?.program?.name ||
+						record.specialization?.trainingProgram?.name ||
+						"-"
+					);
+				},
 		},
 		{
 			title: "Chuyên ngành",
@@ -405,10 +446,17 @@ export const ClassroomManager: React.FC = () => {
 											.toLowerCase()
 											.includes(input.toLowerCase())
 									}
-									options={availableSpecializations.map((spec) => ({
-										label: `${spec.code} - ${spec.name}${spec.program ? ` (${spec.program.code})` : ""}`,
-										value: spec.code,
-									}))}
+									options={availableSpecializations.map((spec) => {
+										const programCodes = getSpecializationProgramCodes(spec);
+										return {
+											label: `${spec.code} - ${spec.name}${
+												programCodes.length
+													? ` (${programCodes.join(", ")})`
+													: ""
+											}`,
+											value: spec.code,
+										};
+									})}
 									notFoundContent={
 										availableSpecializations.length === 0 && selectedCohortCode
 											? "Không tìm thấy chuyên ngành nào thuộc chương trình đào tạo của khóa đã chọn."
@@ -424,17 +472,21 @@ export const ClassroomManager: React.FC = () => {
 							message="Thông tin chuyên ngành đã chọn"
 							description={
 								<div className="mt-2 space-y-1">
-									{selectedSpecialization.department && (
+									{selectedSpecialization.programs && selectedSpecialization.programs.length > 0 ? (
 										<p>
-											<strong>Khoa:</strong> {selectedSpecialization.department.name} ({selectedSpecialization.department.code})
+											<strong>Chương trình đào tạo:</strong>{" "}
+											{selectedSpecialization.programs
+												.map((program) => program.name)
+												.filter(Boolean)
+												.join(", ")}
 										</p>
-									)}
-									{selectedSpecialization.program && (
+									) : selectedSpecialization.program || selectedSpecialization.trainingProgram ? (
 										<p>
-											<strong>Chương trình Đào tạo:</strong> {selectedSpecialization.program.name} ({selectedSpecialization.program.code})
+											<strong>Chương trình đào tạo:</strong>{" "}
+											{selectedSpecialization.program?.name || selectedSpecialization.trainingProgram?.name}
 										</p>
-									)}
-									{selectedCohortCode && selectedCohort && selectedSpecialization.program?.code !== selectedCohort.program?.code && (
+									) : null}
+									{selectedCohortCode && selectedCohort && !specializationHasProgram(selectedSpecialization, selectedCohort.program?.code) && (
 										<p className="text-red-600">
 											<strong>Cảnh báo:</strong> Khóa đã chọn không thuộc cùng chương trình đào tạo với chuyên ngành này.
 										</p>
@@ -495,7 +547,7 @@ export const ClassroomManager: React.FC = () => {
 									<p>
 										<strong>Năm:</strong> {selectedCohort.startYear}{selectedCohort.endYear ? ` - ${selectedCohort.endYear}` : ""}
 									</p>
-									{selectedSpecializationCode && selectedSpecialization && selectedCohort.program?.code !== selectedSpecialization.program?.code && (
+									{selectedSpecializationCode && selectedSpecialization && !specializationHasProgram(selectedSpecialization, selectedCohort.program?.code) && (
 										<p className="text-red-600">
 											<strong>Cảnh báo:</strong> Chuyên ngành đã chọn không thuộc cùng chương trình đào tạo với khóa này.
 										</p>
@@ -564,11 +616,26 @@ export const ClassroomManager: React.FC = () => {
 						<Descriptions.Item label="Tên lớp">
 							{selectedClassroom.name}
 						</Descriptions.Item>
-						<Descriptions.Item label="Khoa">
-							{selectedClassroom.specialization?.department?.name || "-"} ({selectedClassroom.specialization?.department?.code || "-"})
-						</Descriptions.Item>
 						<Descriptions.Item label="Chương trình Đào tạo">
-							{selectedClassroom.specialization?.program?.name || selectedClassroom.specialization?.trainingProgram?.name || "-"} ({selectedClassroom.specialization?.program?.code || selectedClassroom.specialization?.trainingProgram?.code || "-"})
+							{selectedClassroom.specialization?.programs &&
+								selectedClassroom.specialization?.programs.length > 0
+									? selectedClassroom.specialization.programs
+										.map((program) => program.name)
+										.filter(Boolean)
+										.join(", ")
+									: selectedClassroom.specialization?.program?.name ||
+										selectedClassroom.specialization?.trainingProgram?.name ||
+										"-"} (
+								{selectedClassroom.specialization?.programs &&
+								selectedClassroom.specialization?.programs.length > 0
+									? selectedClassroom.specialization.programs
+										.map((program) => program.code)
+										.filter(Boolean)
+										.join(", ")
+									: selectedClassroom.specialization?.program?.code ||
+										selectedClassroom.specialization?.trainingProgram?.code ||
+										"-"}
+							)
 						</Descriptions.Item>
 						<Descriptions.Item label="Chuyên ngành">
 							{selectedClassroom.specialization?.name || "-"} ({selectedClassroom.specialization?.code || "-"})
@@ -580,7 +647,7 @@ export const ClassroomManager: React.FC = () => {
 							{selectedClassroom.description || "-"}
 						</Descriptions.Item>
 					</Descriptions>
-				)}
+					)}
 			</Drawer>
 		</div>
 	);

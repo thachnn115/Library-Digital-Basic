@@ -11,7 +11,7 @@ import {
 	LockOutlined,
 	CameraOutlined,
 } from "@ant-design/icons";
-import type { UploadFile, UploadProps } from "antd";
+import type { UploadProps } from "antd";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

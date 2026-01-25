@@ -8,15 +8,17 @@ export interface User {
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   dateOfBirth?: string | null;
   phone?: string | null;
-  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER';
+  address?: string | null;
+  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT';
   status: 'ACTIVE' | 'INACTIVE' | 'LOCK';
   avatarUrl?: string | null;
   department?: Department | null;
+  classroom?: Classroom | null;
 }
 
 export interface UserRole {
   id: number;
-  name: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER';
+  name: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT';
   description?: string;
 }
 
@@ -29,6 +31,12 @@ export interface Department {
   updatedAt?: string;
 }
 
+export interface Classroom {
+  id: string | number;
+  name: string;
+  code: string;
+}
+
 export interface CreateUserRequest {
   email: string;
   password: string;
@@ -37,9 +45,11 @@ export interface CreateUserRequest {
   userIdentifier?: string;
   dateOfBirth?: string;
   phone?: string;
-  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER';
+  address?: string;
+  type: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT';
   status?: 'ACTIVE' | 'INACTIVE' | 'LOCK';
   departmentId?: number;
+  classroomId?: string;
 }
 
 export interface UpdateUserRequest {
@@ -49,9 +59,11 @@ export interface UpdateUserRequest {
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
   userIdentifier?: string;
   dateOfBirth?: string;
-  type?: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER';
+  address?: string;
+  type?: 'ADMIN' | 'SUB_ADMIN' | 'LECTURER' | 'STUDENT';
   status?: 'ACTIVE' | 'INACTIVE' | 'LOCK';
   departmentId?: number;
+  classroomId?: string;
 }
 
 export interface UserFilterParams {

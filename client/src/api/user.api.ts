@@ -58,9 +58,11 @@ export const userApi = {
 			...data,
 			email: data.email.trim().toLowerCase(),
 			phone: data.phone?.trim() || undefined,
+			address: data.address?.trim() || undefined,
 			userIdentifier: data.userIdentifier?.trim() || undefined,
 			dateOfBirth: data.dateOfBirth?.trim() || undefined,
 			fullName: data.fullName?.trim() || undefined,
+			classroomId: data.classroomId?.trim() || undefined,
 		};
 
 		const response = await apiClient.post<ApiResponse<User>>(
@@ -130,6 +132,27 @@ export const userApi = {
 			formData
 		);
 		return response.data.data;
+	},
+
+	/**
+	 * Download import template (ADMIN only)
+	 */
+	downloadImportTemplate: async (): Promise<{ blob: Blob; filename: string }> => {
+		const response = await apiClient.get(
+			API_ENDPOINTS.USER.IMPORT_TEMPLATE,
+			{ responseType: "blob" }
+		);
+		const disposition =
+			(response.headers &&
+				(response.headers["content-disposition"] ||
+					response.headers["Content-Disposition"])) ||
+			"";
+		let filename = "user-import-template.xlsx";
+		const match = /filename=\"?([^\";]+)\"?/i.exec(disposition);
+		if (match && match[1]) {
+			filename = match[1];
+		}
+		return { blob: response.data as Blob, filename };
 	},
 
 	/**

@@ -31,6 +31,9 @@ public class UpdateUserRequest {
     @Size(max = 30)
     private String phone;
 
+    @Size(max = 255)
+    private String address;
+
     @Email
     @Size(max = 255)
     private String email;
@@ -40,4 +43,6 @@ public class UpdateUserRequest {
     private UserStatus status;
 
     private Long departmentId;
+
+    private String classroomId;
 }

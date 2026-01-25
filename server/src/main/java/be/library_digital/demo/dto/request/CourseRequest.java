@@ -8,13 +8,12 @@ import java.io.Serializable;
 @Getter
 public class CourseRequest implements Serializable {
 
+    @NotBlank(message = "code must be not blank")
+    private String code;
+
     @NotBlank(message = "title must be not blank")
     private String title;
 
-    private String description;
-
-    @NotBlank(message = "classroomId must not be blank")
-    private String classroomId;
-
-    private String instructorId;
+    @NotBlank(message = "departmentCode must not be blank")
+    private String departmentCode;
 }
